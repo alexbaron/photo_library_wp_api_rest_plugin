@@ -20,7 +20,8 @@
 	<!-- https://github.com/PHPCompatibility/PHPCompatibility#sniffing-your-code-for-compatibility-with-specific-php-versions -->
 	<config name="testVersion" value="5.6-"/>
 	<!-- https://github.com/PHPCompatibility/PHPCompatibilityWP -->
-	<rule ref="PHPCompatibilityWP"/>
+	<!-- <rule ref="PHPCompatibilityWP"/> -->
+	<rule ref="~/.config/composer/vendor/phpcompatibility/phpcompatibility-wp/PHPCompatibilityWP/ruleset.xml"/>
 
 	<!-- Rules: WordPress Coding Standards -->
 	<!-- https://github.com/WordPress-Coding-Standards/WordPress-Coding-Standards -->
