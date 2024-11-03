@@ -28,7 +28,7 @@ class PL_REST_DB
 
 			// Prepare and execute the SQL query.
 			$sql = $wpdb->prepare($req, $wpdb->prefix);
-			$result = $wpdb->get_results($sql);
+			$result['pictures'] = $wpdb->get_results($sql);
 
 			// Return an empty array if no results are found.
 			if (!$result) {
@@ -57,7 +57,7 @@ class PL_REST_DB
 			// Initialize the condition string for the SQL query.
 			$conditions = [];
 
-			$keywords = isset($request['search']) ?? [];
+			$keywords = isset($request['search']) ? $request['search'] : [];
 
 			// Add a condition for each keyword.
 			foreach ($keywords as $word) {
@@ -72,7 +72,7 @@ class PL_REST_DB
 					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
 					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
 					WHERE  pm.meta_key = '_thumbnail_id'
-				) AS TMP";
+				) AS TMP ";
 
 			$conds = '';
 			if ($conditions) {
@@ -83,7 +83,7 @@ class PL_REST_DB
 
 			// Prepare and execute the SQL query.
 			$sql = $wpdb->prepare($req, $wpdb->prefix);
-			$result = $wpdb->get_results($sql);
+			$result['pictures'] = $wpdb->get_results($sql);
 
 			// Return an empty array if no results are found.
 			if (!$result) {

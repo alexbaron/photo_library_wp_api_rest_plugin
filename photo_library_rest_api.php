@@ -39,4 +39,6 @@ add_filter('rest_url_prefix', function () {
 
 add_action('init', ['PhotoLibrary', 'init']);
 
+add_filter('rest_pre_serve_request', ['PhotoLibrary', 'rest_send_cors_headers']);
+
 add_action('rest_api_init', ['PhotoLibrary',  'register_rest_routes']);
