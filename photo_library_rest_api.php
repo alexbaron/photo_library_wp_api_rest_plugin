@@ -31,6 +31,7 @@ define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
 
 // Add a new prefix for REST API endpoints.
 add_filter('rest_url_prefix', function () {

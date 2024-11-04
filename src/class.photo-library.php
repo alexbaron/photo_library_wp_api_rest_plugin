@@ -32,11 +32,11 @@ class PhotoLibrary
 	public static function rest_send_cors_headers($value)
 	{
 		$origin = get_http_origin();
-		$allowed_origins = ['site1.example.com', 'site2.example.com', 'localhost:3000'];
+		$allowed_origins = ['phototheque.stephanewagner.com', 'localhost:3000'];
 
 		if ($origin && in_array($origin, $allowed_origins)) {
 			header('Access-Control-Allow-Origin: ' . esc_url_raw($origin));
-			header('Access-Control-Allow-Methods: GET');
+			header('Access-Control-Allow-Methods: *');
 			header('Access-Control-Allow-Credentials: true');
 		}
 

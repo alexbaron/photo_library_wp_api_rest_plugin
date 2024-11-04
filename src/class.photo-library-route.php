@@ -35,7 +35,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 				// 'permission_callback' => [$this, 'get_items_permissions_check'],
 			],
 			// Register our schema callback.
-			'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
+			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
 		]);
 
 		// Get picture by keyword
@@ -48,7 +48,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 				// 'permission_callback' => [$this, 'get_items_permissions_check'],
 			],
 			// Register our schema callback.
-			'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
+			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
 		]);
 	}
 
@@ -102,12 +102,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 		} catch (\Exception $e) {
 			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
 		}
-		//return a response or error based on some conditional
-		if (1 == 1) {
-			return new WP_REST_Response($data, 200);
-		} else {
-			return new WP_Error('code', __('message', 'text-domain'));
-		}
+		return new WP_REST_Response($data, 200);
 	}
 
 	/**
