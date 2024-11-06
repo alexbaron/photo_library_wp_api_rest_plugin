@@ -25,6 +25,7 @@ class PhotoLibrarySchema
 	{
 		$data = [];
 		if ($pictures) {
+			$data['nb_results']	= count($pictures);
 			foreach ($pictures as $picture) {
 				$data[] = $this->preparePictureDataAsArray($picture);
 			}
