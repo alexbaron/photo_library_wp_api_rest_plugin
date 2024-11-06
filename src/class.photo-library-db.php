@@ -50,7 +50,11 @@ class PL_REST_DB
 
 			$result['query'] = $sql;
 			$result['p_table'] = $wpdb->prefix;
-			$result['pictures'] = $wpdb->get_results($sql);
+			try {
+				$result['pictures'] = $wpdb->get_results($sql);
+			} catch (\Exception $e) {
+				$result['sql error'] = $e->getMessage();
+			}
 
 			$photoLibrarySchema = new PhotoLibrarySchema();
 			$result['pictures'] = $photoLibrarySchema->prepareAllPicturesDataAsArray($result['pictures']);
