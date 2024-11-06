@@ -24,8 +24,8 @@ class PL_REST_DB
 			FROM
 					{$wpdb->prefix}postmeta AS pm
 					LEFT JOIN {$wpdb->prefix}posts AS p ON pm.meta_value = p.ID
-					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.{$wpdb->prefix}id = p.ID
-					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.{$wpdb->prefix}col_id = c.{$wpdb->prefix}col_id
+					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
+					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
 					LEFT JOIN (
 							SELECT
 									p_temp.ID,
@@ -37,7 +37,7 @@ class PL_REST_DB
 									{$wpdb->prefix}posts AS p_temp
 									LEFT JOIN {$wpdb->prefix}postmeta AS pm_temp ON p_temp.ID = pm_temp.post_id
 							WHERE
-									pm_temp.meta_key = '_{$wpdb->prefix}attachment_metadata'
+									pm_temp.meta_key = '_wp_attachment_metadata'
 					) AS metadata ON metadata.ID = p.ID
 			WHERE
 					pm.meta_key = '_thumbnail_id'
@@ -47,9 +47,7 @@ class PL_REST_DB
 
 			// Prepare and execute the SQL query.
 			$sql = $wpdb->prepare($req, $wpdb->prefix);
-
-			$result['query'] = $sql;
-			$result['p_table'] = $wpdb->prefix;
+			$result['time'] = \DateTime::createFromFormat('U.u', microtime(true))->format('Y-m-d H:i:s');
 			try {
 				$result['pictures'] = $wpdb->get_results($sql);
 			} catch (\Exception $e) {
@@ -58,10 +56,11 @@ class PL_REST_DB
 
 			$photoLibrarySchema = new PhotoLibrarySchema();
 			$result['pictures'] = $photoLibrarySchema->prepareAllPicturesDataAsArray($result['pictures']);
-
+			$result['nb_results']	= count($result['pictures']);
 			// Return an empty array if no results are found.
 			if (!$result) {
-				return [];
+				$result['pictures'] = 'no results';
+				return $result;
 			}
 			return $result;
 		} catch (\Exception $e) {

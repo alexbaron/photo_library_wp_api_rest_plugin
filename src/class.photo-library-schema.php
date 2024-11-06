@@ -21,11 +21,10 @@ class PhotoLibrarySchema
 	 * @param array $pictures Un tableau d'objets représentant les images.
 	 * @return array Un tableau de données des images conformes au schéma.
 	 */
-	public function prepareAllPicturesDataAsArray(array $pictures): array
+	public function prepareAllPicturesDataAsArray(array $pictures = []): array
 	{
 		$data = [];
 		if ($pictures) {
-			$data['nb_results']	= count($pictures);
 			foreach ($pictures as $picture) {
 				$data[] = $this->preparePictureDataAsArray($picture);
 			}
