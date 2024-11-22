@@ -3,6 +3,8 @@
 /** @package  */
 class PL_REST_DB
 {
+	private static $table_name;
+
 	/**
 	 * Get all pictures with their metadata.
 	 *
@@ -156,15 +158,89 @@ class PL_REST_DB
 		return [];
 	}
 
-	/**
-	 * Get keywords (placeholder function).
-	 *
-	 * @param array $keywords An array of keywords.
-	 * @return array An array of keywords.
-	 */
-	public static function getkeyWords(array $keywords = []): array
+
+	public static function getKeywords(): array
 	{
-		// Placeholder function to get keywords.
+		$keywords = [];
+		try {
+			global $wpdb;
+
+			// SQL query to get pictures and their metadata.
+			$req =
+				"SELECT
+					metadata.meta_value
+			FROM
+					{$wpdb->prefix}postmeta AS pm
+					LEFT JOIN {$wpdb->prefix}posts AS p ON pm.meta_value = p.ID
+					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
+					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
+					LEFT JOIN (
+							SELECT
+									p_temp.ID,
+									p_temp.post_title,
+									p_temp.guid AS img_url,
+									pm_temp.meta_key,
+									pm_temp.meta_value
+							FROM
+									{$wpdb->prefix}posts AS p_temp
+									LEFT JOIN {$wpdb->prefix}postmeta AS pm_temp ON p_temp.ID = pm_temp.post_id
+							WHERE
+									pm_temp.meta_key = '_wp_attachment_metadata'
+					) AS metadata ON metadata.ID = p.ID
+			WHERE
+					pm.meta_key = '_thumbnail_id'
+					AND p.guid IS NOT NULL
+			GROUP BY p.ID
+			";
+
+			// Prepare and execute the SQL query.
+			$sql = $wpdb->prepare($req, $wpdb->prefix);
+			$result['time'] = \DateTime::createFromFormat('U.u', microtime(true))->format('Y-m-d H:i:s');
+			try {
+				$result['meta_data'] = $wpdb->get_results($sql);
+			} catch (\Exception $e) {
+				$result['sql error'] = $e->getMessage();
+			}
+			foreach ($result['meta_data'] as $metadata) {
+				$data = unserialize($metadata->meta_value);
+				if (isset($data['image_meta']['keywords']) && !empty($data['image_meta']['keywords'])) {
+					foreach ($data['image_meta']['keywords'] as $keyword) {
+						if (!in_array($keyword, $keywords)) {
+							$keywords[] = $keyword;
+						}
+					}
+				}
+			}
+			// Return an empty array if no results are found.
+			if (!$result) {
+				$keywords = ['no results'];
+				return $result;
+			}
+			sort($keywords);
+			return $keywords;
+		} catch (\Exception $e) {
+			// Return an error message if an exception occurs.
+			return ['error' => $e->getMessage()];
+		}
 		return [];
+	}
+
+	public static function updateKeywords($keywords = []): array
+	{
+
+		$oldKeywords = self::getKeywords();
+
+		try {
+			global $wpdb;
+			$tableName = $wpdb->prefix . 'pl_keyword';
+
+			$keywords = isset($keywords) ? $keywords : [];
+			$data = [
+				'keyword' => 'test'
+			];
+			$wpdb->insert($this, $data);
+		} catch (\Exception $e) {
+			return ['error' => $e->getMessage()];
+		}
 	}
 }

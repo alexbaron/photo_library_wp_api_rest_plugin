@@ -50,6 +50,14 @@ class PhotoLibrary_Route extends WP_REST_Controller
 			// Register our schema callback.
 			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
 		]);
+
+		//Get all keywords
+		register_rest_route($this->namespace, '/' . $this->resourceName . '/keywords', [
+			[
+				'methods'   => WP_REST_Server::READABLE,
+				'callback'  => [$this, 'get_keywords'],
+			],
+		]);
 	}
 
 	/**
@@ -66,6 +74,26 @@ class PhotoLibrary_Route extends WP_REST_Controller
 		];
 
 		return rest_ensure_response($data);
+	}
+
+	/**
+	 * Get all keywords from the database
+	 *
+	 * @param WP_REST_Request $request Full data about the request.
+	 * @return WP_Error|WP_REST_Response
+	 */
+	public function get_keywords($request)
+	{
+		$data = [];
+		try {
+			$data = PL_REST_DB::getKeywords();
+			echo '->' . '--------------------------------' . "\n";
+			var_dump($data);
+			echo '->' . '--------------------------------' . "\n";
+		} catch (\Exception $e) {
+			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
+		}
+		return new WP_REST_Response($data, 200);
 	}
 
 	/**

@@ -30,6 +30,7 @@ define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
 
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
 
@@ -43,3 +44,8 @@ add_action('init', ['PhotoLibrary', 'init']);
 add_filter('rest_pre_serve_request', ['PhotoLibrary', 'rest_send_cors_headers']);
 
 add_action('rest_api_init', ['PhotoLibrary',  'register_rest_routes']);
+
+register_activation_hook(__FILE__, ['PL_INSTALL', 'create_table']);
+
+$installation = new PL_INSTALL();
+$installation->insert_data();
