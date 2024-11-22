@@ -141,6 +141,7 @@ class PL_REST_DB
 
 			// Prepare and execute the SQL query.
 			$sql = $wpdb->prepare($req, $wpdb->prefix);
+			$result['sql'] = $sql;
 			$result['pictures'] = $wpdb->get_results($sql);
 
 			$photoLibrarySchema = new PhotoLibrarySchema();
