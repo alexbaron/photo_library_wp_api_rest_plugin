@@ -216,7 +216,17 @@ class PL_REST_DB
 				$keywords = ['no results'];
 				return $result;
 			}
+
+			$objectify = function ($value, $counter = 0): array {
+				return ['id' => $counter++, 'keyword' => $value];
+			};
+
+
 			sort($keywords);
+			$counter = 0;
+			$keywords = $output = array_map(function ($name) use (&$counter) {
+				return ['id' => $counter++, 'keyword' => $name];
+			}, $keywords);
 			return $keywords;
 		} catch (\Exception $e) {
 			// Return an error message if an exception occurs.

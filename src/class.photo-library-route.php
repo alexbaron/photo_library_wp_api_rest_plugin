@@ -86,10 +86,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 	{
 		$data = [];
 		try {
-			$data = PL_REST_DB::getKeywords();
-			echo '->' . '--------------------------------' . "\n";
-			var_dump($data);
-			echo '->' . '--------------------------------' . "\n";
+			$data['keywords'] = PL_REST_DB::getKeywords();
 		} catch (\Exception $e) {
 			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
 		}
