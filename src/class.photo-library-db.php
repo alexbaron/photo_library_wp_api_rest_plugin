@@ -23,7 +23,7 @@ class PL_REST_DB
 					p.guid as img_url,
 					metadata.meta_value
 				FROM
-					wp_posts AS p
+					{$wpdb->prefix}posts AS p
 					LEFT JOIN {$wpdb->prefix}postmeta AS pm ON p.ID = pm.post_id
 					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
 					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
@@ -113,7 +113,7 @@ class PL_REST_DB
 						metadata.meta_value,
 						SUBSTRING(metadata.meta_value,locate('keywords',metadata.meta_value) + LENGTH('keywords'), LENGTH(metadata.meta_value) ) as meta_keywords
 				FROM
-					wp_posts AS p
+					{$wpdb->prefix}posts AS p
 					LEFT JOIN {$wpdb->prefix}postmeta AS pm ON p.ID = pm.post_id
 					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
 					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
