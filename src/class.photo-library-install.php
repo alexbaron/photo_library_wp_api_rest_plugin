@@ -14,7 +14,7 @@ class PL_Install
 		error_log('FILE :' . __FILE__ . "\n", 3, ABSPATH . 'debug.log');
 
 		// Hook pour insérer des données
-		add_action('pl_cron_hook', [$this, 'insert_data']);
+		// add_action('pl_cron_hook', [$this, 'insert_data']);
 	}
 
 	public static function create_table()
@@ -54,10 +54,11 @@ class PL_Install
 
 	public function insert_data()
 	{
-		global $wpdb;
-		$data = [
-			'keyword' => 'test'
-		];
-		$wpdb->insert(self::$table_name, $data);
+		$test = 2;
+		// global $wpdb;
+		// $data = [
+		// 	'keyword' => 'test'
+		// ];
+		// $wpdb->insert(self::$table_name, $data);
 	}
 }

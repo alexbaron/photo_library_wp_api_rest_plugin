@@ -48,4 +48,4 @@ add_action('rest_api_init', ['PhotoLibrary',  'register_rest_routes']);
 register_activation_hook(__FILE__, ['PL_INSTALL', 'create_table']);
 
 $installation = new PL_INSTALL();
-$installation->insert_data();
+// $installation->insert_data();

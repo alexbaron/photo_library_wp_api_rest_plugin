@@ -10,7 +10,7 @@ class PL_REST_DB
 	 *
 	 * @return array An array of pictures and their metadata.
 	 */
-	public static function getPictures(): array
+	public static function getPictures($offset = 0): array
 	{
 		try {
 			global $wpdb;
@@ -47,13 +47,15 @@ class PL_REST_DB
 				p.ID
 			ORDER BY
     		metadata.post_title
+			LIMIT 20
+			OFFSET %d
 			";
 
 			// Prepare and execute the SQL query.
-			$sql = $wpdb->prepare($req, $wpdb->prefix);
+			$sql = $wpdb->prepare($req, $wpdb->prefix, $offset);
 			$result['time'] = \DateTime::createFromFormat('U.u', microtime(true))->format('Y-m-d H:i:s');
 			try {
-				$result['sql'] = $sql;
+				// $result['sql'] = $sql;
 				$result['pictures'] = $wpdb->get_results($sql);
 				$result['total'] = count($result['pictures']);
 			} catch (\Exception $e) {
@@ -83,7 +85,7 @@ class PL_REST_DB
 	 *
 	 * @return array An array of pictures that match the keywords.
 	 */
-	public static function getPicturesByKeywords(array $request = []): array
+	public static function getPicturesByKeywords(array $request = [], $offset = 0): array
 	{
 		try {
 			global $wpdb;
@@ -95,7 +97,7 @@ class PL_REST_DB
 
 			// Add a condition for each keyword.
 			foreach ($keywords as $word) {
-				$conditions[] = " TMP.keywords LIKE '%" . $word . "%' OR TMP.meta_keywords LIKE '%" . $word . "%'";
+				$conditions[] = " TMP.keywords LIKE '%" . $word . "%'";
 			}
 
 			$req = "SELECT
@@ -130,17 +132,20 @@ class PL_REST_DB
 							WHERE
 									pm_temp.meta_key = '_wp_attachment_metadata'
 					) AS metadata ON metadata.ID = p.ID
+					GROUP BY p.ID
 				) AS TMP ";
 
 			$conds = '';
 			if ($conditions) {
 				// SQL query to get pictures that match the keywords.
-				$conds = " " . implode(" OR ", $conditions) . ";";
+				$conds = " " . implode(" OR ", $conditions) . " ";
 				$req .= "WHERE $conds ";
 			}
 
+			$req .= " LIMIT 20 OFFSET 0 ;";
+
 			// Prepare and execute the SQL query.
-			$sql = $wpdb->prepare($req, $wpdb->prefix);
+			$sql = $wpdb->prepare($req, $wpdb->prefix, $offset);
 			$result['sql'] = $sql;
 			$result['pictures'] = $wpdb->get_results($sql);
 			$result['total'] = count($result['pictures']);
@@ -230,20 +235,21 @@ class PL_REST_DB
 
 	public static function updateKeywords($keywords = []): array
 	{
+		$test = 1;
 
-		$oldKeywords = self::getKeywords();
+		// $oldKeywords = self::getKeywords();
 
-		try {
-			global $wpdb;
-			$tableName = $wpdb->prefix . 'pl_keyword';
+		// try {
+		// 	global $wpdb;
+		// 	$tableName = $wpdb->prefix . 'pl_keyword';
 
-			$keywords = isset($keywords) ? $keywords : [];
-			$data = [
-				'keyword' => 'test'
-			];
-			$wpdb->insert($this, $data);
-		} catch (\Exception $e) {
-			return ['error' => $e->getMessage()];
-		}
+		// 	$keywords = isset($keywords) ? $keywords : [];
+		// 	$data = [
+		// 		'keyword' => 'test'
+		// 	];
+		// 	$wpdb->insert($this, $data);
+		// } catch (\Exception $e) {
+		// 	return ['error' => $e->getMessage()];
+		// }
 	}
 }
