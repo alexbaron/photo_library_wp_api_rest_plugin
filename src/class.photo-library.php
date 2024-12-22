@@ -32,7 +32,7 @@ class PhotoLibrary
 	public static function rest_send_cors_headers($value)
 	{
 		$origin = get_http_origin();
-		$allowed_origins = ['phototheque.stephanewagner.com', 'localhost:3000'];
+		$allowed_origins = ['phototheque.stephanewagner.com', 'localhost:3000', '*'];
 
 		if ($origin && in_array($origin, $allowed_origins)) {
 			header('Access-Control-Allow-Origin: ' . esc_url_raw($origin));

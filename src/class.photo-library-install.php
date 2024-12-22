@@ -10,8 +10,8 @@ class PL_Install
 		global $wpdb;
 		self::$table_name = $wpdb->prefix . 'pl_keyword';
 		self::$version = '1.0';
-		error_log('Test creation table keyword' . "\n", 3, ABSPATH . 'debug.log');
-		error_log('FILE :' . __FILE__ . "\n", 3, ABSPATH . 'debug.log');
+		// error_log('Test creation table keyword' . "\n", 3, ABSPATH . 'debug.log');
+		// error_log('FILE :' . __FILE__ . "\n", 3, ABSPATH . 'debug.log');
 
 		// Hook pour insérer des données
 		// add_action('pl_cron_hook', [$this, 'insert_data']);
