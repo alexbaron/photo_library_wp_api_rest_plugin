@@ -128,6 +128,7 @@ class PL_REST_DB
 					GROUP BY pm.post_id
 			) AS TMP
 			WHERE   TMP.keywords REGEXP '$keywords'
+			OR TMP.meta_keywords REGEXP '$keywords'
 			";
 
 			/**
