@@ -10,6 +10,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 	{
 		$this->namespace    = '/photo-library/v1';
 		$this->resourceName = 'pictures';
+		$this->singleResourceName = 'pictures';
 	}
 
 	/**
@@ -38,7 +39,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
 		]);
 
-		// Get picture by keyword
+		// Get pictures by keyword
 		register_rest_route($this->namespace, '/' . $this->resourceName . '/by_keywords', [
 			// Here we register the readable endpoint for collections.
 			[
@@ -58,6 +59,21 @@ class PhotoLibrary_Route extends WP_REST_Controller
 				'callback'  => [$this, 'get_keywords'],
 			],
 		]);
+
+		// Get picture by id
+		register_rest_route($this->namespace, '/' . $this->resourceName . '/(?P<id>[\d]+)', [
+			// Here we register the readable endpoint for collections.
+			[
+				'methods'   => WP_REST_Server::READABLE,
+				'callback'  => [$this, 'get_pictures_by_id'],
+				'permission_callback' => '__return_true',
+				// @todo configure some permission rules
+				// 'permission_callback' => [$this, 'get_items_permissions_check'],
+			],
+			// Register our schema callback.
+			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
+		]);
+
 	}
 
 	/**
@@ -124,6 +140,26 @@ class PhotoLibrary_Route extends WP_REST_Controller
 
 		try {
 			$data = PL_REST_DB::getPicturesByKeywords($params);
+		} catch (\Exception $e) {
+			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
+		}
+		return new WP_REST_Response($data, 200);
+	}
+
+	/**
+	 * Get one item from the collection by id
+	 *
+	 * @param WP_REST_Request $request Full data about the request.
+	 * @return WP_Error|WP_REST_Response
+	 */
+	public function get_pictures_by_id($request)
+	{
+		//get parameters from request
+		$id = $request->get_param('id');
+		$data = []; //do a query, call another class, etc
+
+		try {
+			$data = PL_REST_DB::getPicturesById($id);
 		} catch (\Exception $e) {
 			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
 		}
