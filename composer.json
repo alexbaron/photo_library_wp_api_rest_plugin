@@ -1,0 +1,27 @@
+{
+    "name": "alex/photo_library_rest_api",
+    "description": "Wordpress plugin to share image to react phototeque app.",
+    "type": "project",
+    "require": {
+        "ksubileau/color-thief-php": "^2.0"
+    },
+    "require-dev": {
+        "joachim-n/composer-manifest": "^1.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Alex\\PhotoLibraryRestApi\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Alex Baron",
+            "email": "159906+alexbaron@users.noreply.github.com"
+        }
+    ],
+    "config": {
+        "allow-plugins": {
+            "joachim-n/composer-manifest": true
+        }
+    }
+}

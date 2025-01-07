@@ -15,6 +15,9 @@
  * @package         Photo_library_rest_api
  */
 
+
+require_once __DIR__ . '/vendor/autoload.php';
+
 // Exit if accessed directly.
 if (! defined('ABSPATH')) {
 	exit;

@@ -18,7 +18,6 @@ class PhotoLibrary
 	public static function init(): void
 	{
 		// @todo plugin configuration with forms UI
-		error_log("PhotoLibrary init");
 	}
 
 	/**
