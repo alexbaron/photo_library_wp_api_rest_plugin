@@ -93,6 +93,7 @@ class PhotoLibrarySchema
 		$schema['height'] = $metadata['height'];
 		$schema['src'] = $metadata['sizes'];
 		$schema['src']['original'] = $this->getSourceUrl($picture);
+		$schema['keywords'] = $metadata['meta_keywords'];
 		if ($picture->palette) {
 			$schema['palette'] = unserialize($picture->palette);
 		} else {

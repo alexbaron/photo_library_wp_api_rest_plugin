@@ -27,6 +27,18 @@ class PhotoLibrary_Route extends WP_REST_Controller
 		// get all pictures
 		$testRoute = $this->namespace . '/' . $this->resourceName . '/all';
 
+		register_rest_route($this->namespace, '/' . $this->resourceName . '/random', [
+			// Here we register the readable endpoint for collections.
+			[
+				'methods'   => WP_REST_Server::READABLE,
+				'callback'  => [$this, 'get_random_picture'],
+				// @todo configure some permission rules
+				// 'permission_callback' => [$this, 'get_items_permissions_check'],
+			],
+			// Register our schema callback.
+			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
+		]);
+
 		register_rest_route($this->namespace, '/' . $this->resourceName . '/all', [
 			// Here we register the readable endpoint for collections.
 			[
@@ -103,6 +115,17 @@ class PhotoLibrary_Route extends WP_REST_Controller
 		$data = [];
 		try {
 			$data['keywords'] = PL_REST_DB::getKeywords();
+		} catch (\Exception $e) {
+			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
+		}
+		return new WP_REST_Response($data, 200);
+	}
+
+	public function get_random_picture($request)
+	{
+		$data = [];
+		try {
+			$data = PL_REST_DB::getRandomPicture();
 		} catch (\Exception $e) {
 			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
 		}

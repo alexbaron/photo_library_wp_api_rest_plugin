@@ -22,6 +22,34 @@ class PL_REST_DB
 		return $this->wpdb;
 	}
 
+	public static function getRandomPicture()
+	{
+		global $wpdb;
+
+		$result = [];
+		// $count = $this->getWpDb()->get_var("SELECT COUNT(*) FROM {$this->getWpDb()->prefix}posts WHERE post_type = 'attachment' AND post_mime_type LIKE 'image%'");
+		$picture = $wpdb->get_row(
+			"
+			SELECT
+				p.ID as id,
+				p.post_title as title,
+				p.guid as img_url,
+				metadata.meta_value,
+				palette.meta_value as palette
+			FROM {$wpdb->prefix}posts AS p
+			LEFT JOIN {$wpdb->prefix}postmeta AS metadata ON p.ID = metadata.post_id AND metadata.meta_key = '_wp_attachment_metadata'
+			LEFT JOIN {$wpdb->prefix}postmeta AS palette ON p.ID = palette.post_id AND palette.meta_key = '_pl_palette'
+			WHERE post_type = 'attachment' AND post_mime_type
+			LIKE 'image%'
+			ORDER BY RAND() LIMIT 1
+			"
+		);
+
+		$photoLibrarySchema = new PhotoLibrarySchema();
+		$result['picture'] = $photoLibrarySchema->preparePictureDataAsArray($picture);
+		return $result;
+	}
+
 	/**
 	 * Get all pictures with their metadata.
 	 *
@@ -76,7 +104,7 @@ class PL_REST_DB
 				p.ID
 			ORDER BY
     		metadata.post_title
-			LIMIT 20
+			LIMIT 5
 			OFFSET %d
 			";
 
