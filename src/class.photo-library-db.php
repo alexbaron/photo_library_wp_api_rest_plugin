@@ -34,7 +34,7 @@ class PL_REST_DB
 				p.ID as id,
 				p.post_title as title,
 				p.guid as img_url,
-				metadata.meta_value,
+				metadata.meta_value as metadata,
 				palette.meta_value as palette
 			FROM {$wpdb->prefix}posts AS p
 			LEFT JOIN {$wpdb->prefix}postmeta AS metadata ON p.ID = metadata.post_id AND metadata.meta_key = '_wp_attachment_metadata'
@@ -66,7 +66,7 @@ class PL_REST_DB
 					p.ID as id,
 					metadata.post_title as title,
 					p.guid as img_url,
-					metadata.meta_value,
+					metadata.meta_value as metadata,
 					metadata_palette.meta_value as palette
 				FROM
 					{$wpdb->prefix}posts AS p
@@ -155,7 +155,7 @@ class PL_REST_DB
 			TMP.title,
 			TMP.img_url,
 			TMP.keywords,
-			TMP.meta_value,
+			TMP.meta_value as metadata,
 			TMP.palette
 			FROM
 			( SELECT
@@ -205,13 +205,12 @@ class PL_REST_DB
 			 */
 			$sql = $wpdb->prepare($req, $keywords);
 			try {
-				$sqlResult = $wpdb->get_results($sql);
+				$result['pictures'] =  $wpdb->get_results($sql);
 			} catch (\Exception $e) {
 				$result['sql error'] = $e->getMessage();
 			}
 
 			$result['debug log'] = 'api_debug.log';
-			$result['pictures'] = $wpdb->get_results($sql);
 			$result['total'] = count($result['pictures']);
 
 			$photoLibrarySchema = new PhotoLibrarySchema();
@@ -250,8 +249,7 @@ class PL_REST_DB
 			TMP.id,
 			TMP.title,
 			TMP.img_url,
-			TMP.keywords,
-			TMP.meta_value,
+			TMP.meta_value as metadata,
 			TMP.palette
 			FROM
 			( SELECT
@@ -260,7 +258,6 @@ class PL_REST_DB
 							p.guid as img_url,
 							CONCAT (metadata.post_title , '|' , IFNULL(c.name, '') ) AS keywords,
 							metadata.meta_value,
-							SUBSTRING(metadata.meta_value,locate('keywords',metadata.meta_value) + LENGTH('keywords'), LENGTH(metadata.meta_value) ) as meta_keywords,
 							metadata_palette.meta_value as palette
 			FROM
 					{$wpdb->prefix}posts AS p
@@ -269,16 +266,16 @@ class PL_REST_DB
 					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
 					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
 					LEFT JOIN (
-									SELECT
-													p_temp.ID,
-													p_temp.post_title,
-													p_temp.guid AS img_url,
-													pm_temp.meta_key,
-													pm_temp.meta_value
-									FROM
-													{$wpdb->prefix}posts AS p_temp
-													LEFT JOIN {$wpdb->prefix}postmeta AS pm_temp ON p_temp.ID = pm_temp.post_id
-									WHERE pm_temp.meta_key = '_wp_attachment_metadata'
+						SELECT
+							p_temp.ID,
+							p_temp.post_title,
+							p_temp.guid AS img_url,
+							pm_temp.meta_key,
+							pm_temp.meta_value
+						FROM
+							{$wpdb->prefix}posts AS p_temp
+							LEFT JOIN {$wpdb->prefix}postmeta AS pm_temp ON p_temp.ID = pm_temp.post_id
+						WHERE pm_temp.meta_key = '_wp_attachment_metadata'
 					) AS metadata ON metadata.ID = p.ID
 					LEFT JOIN (
 							SELECT

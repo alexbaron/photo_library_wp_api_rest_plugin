@@ -84,7 +84,7 @@ class PhotoLibrarySchema
 	public function preparePictureDataAsArray(stdClass $picture): array
 	{
 		// Désérialiser les métadonnées de l'image
-		$metadata = unserialize($picture->meta_value);
+		$metadata = unserialize($picture->metadata);
 
 		// Préparation du schéma
 		$schema = [];
@@ -93,16 +93,26 @@ class PhotoLibrarySchema
 		$schema['height'] = $metadata['height'];
 		$schema['src'] = $metadata['sizes'];
 		$schema['src']['original'] = $this->getSourceUrl($picture);
-		$schema['keywords'] = $metadata['meta_keywords'];
+
+		if (
+			isset($metadata['image_meta']['keywords']) &&  count($metadata['image_meta']['keywords'])
+		) {
+			$schema['keywords'] = $metadata['image_meta']['keywords'];
+		}
+
+		$schema['keywords'] = $metadata['image_meta']['keywords'];
 		if ($picture->palette) {
 			$schema['palette'] = unserialize($picture->palette);
 		} else {
 			if ($this->plRestDb) {
 
-				$area = $this->calcArea(
+				$area = null;
+				if ($metadata['width'] && $metadata['height']) {
+					$area = $this->calcArea(
 						$metadata['width'],
 						$metadata['height']
 					);
+				}
 
 				$schema['palette'] = $this->getPalette($picture, $area);
 			}
@@ -112,7 +122,7 @@ class PhotoLibrarySchema
 		}
 		$schema['author'] = 'stéphane wagner';
 		$schema['alt'] = '';
-		$schema['metadata'] = $metadata['image_meta'];
+		$schema['metadata'] = $metadata['metadata'];
 		$schema['filesize'] = $metadata['filesize'];
 		$schema['title'] = $picture->title;
 
