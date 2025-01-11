@@ -10,7 +10,7 @@
  * Author:          alex baron
  * Author URI:      YOUR SITE HERE
  * Text Domain:     photo_library_rest_api
- * Version:         0.1.0
+ * Version:         0.2.0
  *
  * @package         Photo_library_rest_api
  */
