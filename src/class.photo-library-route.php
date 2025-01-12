@@ -114,7 +114,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 	{
 		$data = [];
 		try {
-			$data['keywords'] = PL_REST_DB::getKeywords();
+			$data['keywords'] = array_merge(['Réinitialiser'], PL_REST_DB::getKeywords());
 		} catch (\Exception $e) {
 			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
 		}
