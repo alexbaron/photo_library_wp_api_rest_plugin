@@ -139,7 +139,7 @@
                     "dev-main": "3.5-dev"
                 }
             },
-            "installation-source": "source",
+            "installation-source": "dist",
             "autoload": {
                 "files": [
                     "function.php"

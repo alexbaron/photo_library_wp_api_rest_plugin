@@ -23,7 +23,7 @@ class PL_Install
 
 		$charset_collate = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE " . self::$table_name . " (
+		$sql = "CREATE TABLE IF NOT EXISTS " . self::$table_name . " (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             keyword varchar(255) NOT NULL UNIQUE,
             PRIMARY KEY  (id),

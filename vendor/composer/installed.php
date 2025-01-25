@@ -3,7 +3,7 @@
         'name' => 'alex/photo_library_rest_api',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'c67b2a7ab5312ec35b5731f51d02de0e7fe36424',
+        'reference' => '25f453ef587ffddd8bbb616e81207bf202f07096',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'alex/photo_library_rest_api' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'c67b2a7ab5312ec35b5731f51d02de0e7fe36424',
+            'reference' => '25f453ef587ffddd8bbb616e81207bf202f07096',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
