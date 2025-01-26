@@ -391,7 +391,7 @@ class PL_REST_DB
 				return $result;
 			}
 
-			sort($keywords);
+			usort($keywords, 'strcasecmp');
 			return $keywords;
 		} catch (\Exception $e) {
 			// Return an error message if an exception occurs.
