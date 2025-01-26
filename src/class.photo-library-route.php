@@ -27,7 +27,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 		// get all pictures
 		$testRoute = $this->namespace . '/' . $this->resourceName . '/all';
 
-		register_rest_route($this->namespace, '/' . $this->resourceName . '/random', [
+		register_rest_route($this->namespace, '/' . $this->resourceName . '/random' . '/(?P<id>[\d]+)', [
 			// Here we register the readable endpoint for collections.
 			[
 				'methods'   => WP_REST_Server::READABLE,
@@ -123,9 +123,10 @@ class PhotoLibrary_Route extends WP_REST_Controller
 
 	public function get_random_picture($request)
 	{
+		$id = $request->get_param('id');
 		$data = [];
 		try {
-			$data = PL_REST_DB::getRandomPicture();
+			$data = PL_REST_DB::getRandomPicture($id);
 		} catch (\Exception $e) {
 			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
 		}

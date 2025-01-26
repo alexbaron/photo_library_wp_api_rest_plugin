@@ -22,7 +22,7 @@ class PL_REST_DB
 		return $this->wpdb;
 	}
 
-	public static function getRandomPicture()
+	public static function getRandomPicture(int $id = 0)
 	{
 		global $wpdb;
 
@@ -40,8 +40,9 @@ class PL_REST_DB
 			FROM {$wpdb->prefix}posts AS p
 			LEFT JOIN {$wpdb->prefix}postmeta AS metadata ON p.ID = metadata.post_id AND metadata.meta_key = '_wp_attachment_metadata'
 			LEFT JOIN {$wpdb->prefix}postmeta AS palette ON p.ID = palette.post_id AND palette.meta_key = '_pl_palette'
-			WHERE post_type = 'attachment' AND post_mime_type
-			LIKE 'image%'
+			WHERE post_type = 'attachment'
+				AND post_mime_type LIKE 'image%'
+				AND p.ID <> 0
 			ORDER BY RAND() LIMIT 1
 			"
 		);
