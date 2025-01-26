@@ -155,27 +155,19 @@ class PL_REST_DB
 
 			$req = "SELECT
 			TMP.id,
-			TMP.description,
-			TMP.title,
 			TMP.img_url,
-			TMP.keywords,
-			TMP.meta_value as metadata,
-			TMP.palette
+			TMP.meta_value as metadata
 			FROM
 			( SELECT
 					p.ID as id,
-					p.post_content as description,
 					metadata.post_title as title,
 					p.guid as img_url,
-					CONCAT (metadata.post_title , '|' , IFNULL(c.name, '') ) AS keywords,
 					metadata.meta_value,
 					SUBSTRING(metadata.meta_value,locate('keywords',metadata.meta_value) + LENGTH('keywords'), LENGTH(metadata.meta_value) ) as meta_keywords,
 					metadata_palette.meta_value as palette
 			FROM
 					{$wpdb->prefix}posts AS p
 					LEFT JOIN {$wpdb->prefix}postmeta AS pm ON p.ID = pm.post_id
-					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
-					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
 					LEFT JOIN (
 						SELECT
 										p_temp.ID,
@@ -201,8 +193,8 @@ class PL_REST_DB
 					) AS metadata_palette ON metadata_palette.ID = p.ID
 					GROUP BY pm.post_id
 			) AS TMP
-			WHERE   TMP.keywords REGEXP '$keywords'
-			OR TMP.meta_keywords REGEXP '$keywords'
+			WHERE
+			TMP.meta_keywords REGEXP '$keywords'
 			";
 
 			/**
@@ -346,8 +338,6 @@ class PL_REST_DB
 			FROM
 					{$wpdb->prefix}postmeta AS pm
 					LEFT JOIN {$wpdb->prefix}posts AS p ON pm.meta_value = p.ID
-					LEFT JOIN {$wpdb->prefix}lrsync_relations r ON r.wp_id = p.ID
-					LEFT JOIN {$wpdb->prefix}lrsync_collections c ON r.wp_col_id = c.wp_col_id
 					LEFT JOIN (
 							SELECT
 									p_temp.ID,
