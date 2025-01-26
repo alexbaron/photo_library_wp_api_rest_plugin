@@ -33,6 +33,7 @@ class PL_REST_DB
 			SELECT
 				p.ID as id,
 				p.post_title as title,
+				p.post_content as description,
 				p.guid as img_url,
 				metadata.meta_value as metadata,
 				palette.meta_value as palette
@@ -66,6 +67,7 @@ class PL_REST_DB
 					p.ID as id,
 					metadata.post_title as title,
 					p.guid as img_url,
+					p.post_content as description,
 					metadata.meta_value as metadata,
 					metadata_palette.meta_value as palette
 				FROM
@@ -152,6 +154,7 @@ class PL_REST_DB
 
 			$req = "SELECT
 			TMP.id,
+			TMP.description,
 			TMP.title,
 			TMP.img_url,
 			TMP.keywords,
@@ -160,6 +163,7 @@ class PL_REST_DB
 			FROM
 			( SELECT
 					p.ID as id,
+					p.post_content as description,
 					metadata.post_title as title,
 					p.guid as img_url,
 					CONCAT (metadata.post_title , '|' , IFNULL(c.name, '') ) AS keywords,
@@ -247,6 +251,7 @@ class PL_REST_DB
 
 			$req = "SELECT
 			TMP.id,
+			TMP.description,
 			TMP.title,
 			TMP.img_url,
 			TMP.meta_value as metadata,
@@ -254,6 +259,7 @@ class PL_REST_DB
 			FROM
 			( SELECT
 							p.ID as id,
+							p.post_content as description,
 							metadata.post_title as title,
 							p.guid as img_url,
 							CONCAT (metadata.post_title , '|' , IFNULL(c.name, '') ) AS keywords,
@@ -303,7 +309,7 @@ class PL_REST_DB
 			}
 
 			$result['debug log'] = 'api_debug.log';
-			$result['sql'] = $sql;
+			// $result['sql'] = $sql;
 			$result['picture'] = $wpdb->get_results($sql);
 			$result['total'] = count($result['picture']);
 

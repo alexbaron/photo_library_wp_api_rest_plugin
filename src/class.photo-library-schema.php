@@ -125,6 +125,7 @@ class PhotoLibrarySchema
 		$schema['metadata'] = $metadata['metadata'];
 		$schema['filesize'] = $metadata['filesize'];
 		$schema['title'] = $picture->title;
+		$schema['description'] = $picture->description;
 
 		return $schema;
 	}
