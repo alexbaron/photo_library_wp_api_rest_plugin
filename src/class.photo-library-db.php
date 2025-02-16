@@ -331,31 +331,12 @@ class PL_REST_DB
 		try {
 			global $wpdb;
 
-			// SQL query to get pictures and their metadata.
 			$req =
-				"SELECT
-					metadata.meta_value
-			FROM
-					{$wpdb->prefix}postmeta AS pm
-					LEFT JOIN {$wpdb->prefix}posts AS p ON pm.meta_value = p.ID
-					LEFT JOIN (
-							SELECT
-									p_temp.ID,
-									p_temp.post_title,
-									p_temp.guid AS img_url,
-									pm_temp.meta_key,
-									pm_temp.meta_value
-							FROM
-									{$wpdb->prefix}posts AS p_temp
-									LEFT JOIN {$wpdb->prefix}postmeta AS pm_temp ON p_temp.ID = pm_temp.post_id
-							WHERE
-									pm_temp.meta_key = '_wp_attachment_metadata'
-					) AS metadata ON metadata.ID = p.ID
-			WHERE
-					pm.meta_key = '_thumbnail_id'
-					AND p.guid IS NOT NULL
-			GROUP BY p.ID
-			";
+			"SELECT DISTINCT(CONCAT(UPPER(LEFT(value,1)), SUBSTR(value, 2))) as value
+			FROM {$wpdb->prefix}lrsync_meta
+			WHERE name = 'tag_name'
+			ORDER BY value
+			;";
 
 			// Prepare and execute the SQL query.
 			$sql = $wpdb->prepare($req, $wpdb->prefix);
@@ -366,22 +347,14 @@ class PL_REST_DB
 				$result['sql error'] = $e->getMessage();
 			}
 			foreach ($result['meta_data'] as $metadata) {
-				$data = unserialize($metadata->meta_value);
-				if (isset($data['image_meta']['keywords']) && !empty($data['image_meta']['keywords'])) {
-					foreach ($data['image_meta']['keywords'] as $keyword) {
-						if (!in_array($keyword, $keywords)) {
-							$keywords[] = $keyword;
-						}
-					}
-				}
+				$keywords[] = $metadata->value;
 			}
-			// Return an empty array if no results are found.
+			// If no results are found, return an array with no results as info.
 			if (!$result) {
-				$keywords = ['no results'];
-				return $result;
+				return ['no results'];
 			}
 
-			usort($keywords, 'strcasecmp');
+			// usort($keywords, 'strcasecmp');
 			return $keywords;
 		} catch (\Exception $e) {
 			// Return an error message if an exception occurs.

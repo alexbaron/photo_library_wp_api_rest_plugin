@@ -27,6 +27,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 		// get all pictures
 		$testRoute = $this->namespace . '/' . $this->resourceName . '/all';
 
+		// pass id = 0 to get a random picture
 		register_rest_route($this->namespace, '/' . $this->resourceName . '/random' . '/(?P<id>[\d]+)', [
 			// Here we register the readable endpoint for collections.
 			[
