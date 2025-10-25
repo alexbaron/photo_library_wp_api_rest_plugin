@@ -8,7 +8,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
 	// Here initialize our namespace and resource name.
 	public function __construct()
 	{
-		$this->namespace    = '/photo-library/v1';
+		$this->namespace    = 'photo-library/v1';
 		$this->resourceName = 'pictures';
 		$this->singleResourceName = 'pictures';
 	}
@@ -18,51 +18,41 @@ class PhotoLibrary_Route extends WP_REST_Controller
 	 */
 	public function register_routes(): void
 	{
+		error_log("PhotoLibrary_Route::register_routes called");
+
 		// test purpose
 		register_rest_route($this->namespace, '/test', [
 			'methods'  => WP_REST_Server::READABLE,
 			'callback' => ['PhotoLibrary_Route', 'test_request'],
+			'permission_callback' => '__return_true',
 		]);
+		error_log("Test route registered: " . $this->namespace . '/test');
 
 		// get all pictures
-		$testRoute = $this->namespace . '/' . $this->resourceName . '/all';
-
-		// pass id = 0 to get a random picture
-		register_rest_route($this->namespace, '/' . $this->resourceName . '/random' . '/(?P<id>[\d]+)', [
-			// Here we register the readable endpoint for collections.
-			[
-				'methods'   => WP_REST_Server::READABLE,
-				'callback'  => [$this, 'get_random_picture'],
-				// @todo configure some permission rules
-				// 'permission_callback' => [$this, 'get_items_permissions_check'],
-			],
-			// Register our schema callback.
-			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
-		]);
-
 		register_rest_route($this->namespace, '/' . $this->resourceName . '/all', [
-			// Here we register the readable endpoint for collections.
 			[
 				'methods'   => WP_REST_Server::READABLE,
 				'callback'  => [$this, 'get_pictures'],
-				// @todo configure some permission rules
-				// 'permission_callback' => [$this, 'get_items_permissions_check'],
+				'permission_callback' => '__return_true',
 			],
-			// Register our schema callback.
-			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
+		]);
+
+		// pass id = 0 to get a random picture
+		register_rest_route($this->namespace, '/' . $this->resourceName . '/random' . '/(?P<id>[\d]+)', [
+			[
+				'methods'   => WP_REST_Server::READABLE,
+				'callback'  => [$this, 'get_random_picture'],
+				'permission_callback' => '__return_true',
+			],
 		]);
 
 		// Get pictures by keyword
 		register_rest_route($this->namespace, '/' . $this->resourceName . '/by_keywords', [
-			// Here we register the readable endpoint for collections.
 			[
 				'methods'   => WP_REST_Server::CREATABLE,
 				'callback'  => [$this, 'get_pictures_by_keyword'],
-				// @todo configure some permission rules
-				// 'permission_callback' => [$this, 'get_items_permissions_check'],
+				'permission_callback' => '__return_true',
 			],
-			// Register our schema callback.
-			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
 		]);
 
 		//Get all keywords
@@ -70,176 +60,74 @@ class PhotoLibrary_Route extends WP_REST_Controller
 			[
 				'methods'   => WP_REST_Server::READABLE,
 				'callback'  => [$this, 'get_keywords'],
+				'permission_callback' => '__return_true',
 			],
 		]);
 
 		// Get picture by id
 		register_rest_route($this->namespace, '/' . $this->resourceName . '/(?P<id>[\d]+)', [
-			// Here we register the readable endpoint for collections.
 			[
 				'methods'   => WP_REST_Server::READABLE,
 				'callback'  => [$this, 'get_pictures_by_id'],
 				'permission_callback' => '__return_true',
-				// @todo configure some permission rules
-				// 'permission_callback' => [$this, 'get_items_permissions_check'],
 			],
-			// Register our schema callback.
-			// 'schema' => ['PhotoLibrary_Route', 'get_item_schema'],
 		]);
-
 	}
 
 	/**
-	 * Handle the GET request.
-	 *
-	 * @param WP_REST_Request $request Full data about the request.
-	 * @return WP_REST_Response
+	 * Test request for debugging purposes
 	 */
-	public static function test_request(WP_REST_Request $request)
+	public static function test_request(): WP_REST_Response
 	{
-		$data = [
-			'message' => 'Bienvenue sur notre photo library API ',
-			'status'  => 'success',
-		];
-
-		return rest_ensure_response($data);
+		$message = ['message' => 'PhotoLibrary REST API is working!'];
+		return new WP_REST_Response($message, 200);
 	}
 
 	/**
-	 * Get all keywords from the database
-	 *
-	 * @param WP_REST_Request $request Full data about the request.
-	 * @return WP_Error|WP_REST_Response
+	 * Get pictures based on keyword filter
 	 */
-	public function get_keywords($request)
+	public function get_pictures_by_keyword($request): WP_REST_Response
 	{
-		$data = [];
-		try {
-			$data['keywords'] = array_merge(['Réinitialiser'], PL_REST_DB::getKeywords());
-		} catch (\Exception $e) {
-			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
-		}
-		return new WP_REST_Response($data, 200);
+		$keyword = $request->get_param('keyword') ?? '';
+		$message = ['message' => 'get_pictures_by_keyword called with keyword: ' . $keyword, 'data' => []];
+		return new WP_REST_Response($message, 200);
 	}
 
-	public function get_random_picture($request)
+	/**
+	 * Get all keywords
+	 */
+	public function get_keywords(): WP_REST_Response
+	{
+		$message = ['message' => 'get_keywords called', 'data' => []];
+		return new WP_REST_Response($message, 200);
+	}
+
+	/**
+	 * Get picture by ID
+	 */
+	public function get_pictures_by_id($request): WP_REST_Response
 	{
 		$id = $request->get_param('id');
-		$data = [];
-		try {
-			$data = PL_REST_DB::getRandomPicture($id);
-		} catch (\Exception $e) {
-			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
-		}
-		return new WP_REST_Response($data, 200);
+		$message = ['message' => 'get_pictures_by_id called with ID: ' . $id, 'data' => []];
+		return new WP_REST_Response($message, 200);
 	}
 
 	/**
-	 * Get a collection of pictures
-	 *
-	 * @param WP_REST_Request $request Full data about the request.
-	 * @return WP_Error|WP_REST_Response
+	 * Get all pictures
 	 */
-	public function get_pictures($request)
+	public function get_pictures($request): WP_REST_Response
 	{
-		$data = [];
-		try {
-			$data = PL_REST_DB::getPictures();
-		} catch (\Exception $e) {
-			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
-		}
-		return new WP_REST_Response($data, 200);
+		$message = ['message' => 'get_pictures called', 'data' => []];
+		return new WP_REST_Response($message, 200);
 	}
 
 	/**
-	 * Get one item from the collection
-	 *
-	 * @param WP_REST_Request $request Full data about the request.
-	 * @return WP_Error|WP_REST_Response
+	 * Get random picture
 	 */
-	public function get_pictures_by_keyword($request)
+	public function get_random_picture($request): WP_REST_Response
 	{
-		//get parameters from request
-		$params = $request->get_params();
-		$data = []; //do a query, call another class, etc
-
-		try {
-			$data = PL_REST_DB::getPicturesByKeywords($params);
-		} catch (\Exception $e) {
-			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
-		}
-		return new WP_REST_Response($data, 200);
-	}
-
-	/**
-	 * Get one item from the collection by id
-	 *
-	 * @param WP_REST_Request $request Full data about the request.
-	 * @return WP_Error|WP_REST_Response
-	 */
-	public function get_pictures_by_id($request)
-	{
-		//get parameters from request
 		$id = $request->get_param('id');
-		$data = []; //do a query, call another class, etc
-
-		try {
-			$data = PL_REST_DB::getPicturesById($id);
-		} catch (\Exception $e) {
-			$data = ['error' => sprintf('An error occured : %s', $e->getMessage())];
-		}
-		return new WP_REST_Response($data, 200);
-	}
-
-	/**
-	 * Get our sample schema for a post.
-	 *
-	 * @return array The sample schema for a post
-	 */
-	public function get_item_schema()
-	{
-		if ($this->schema) {
-			// Since WordPress 5.3, the schema can be cached in the $schema property.
-			return $this->schema;
-		}
-
-		$this->schema = [
-			// This tells the spec of JSON Schema we are using which is draft 4.
-			'$schema'              => 'http://json-schema.org/draft-04/schema#',
-			// The title property marks the identity of the resource.
-			'title'                => 'picture',
-			'type'                 => 'object',
-			// In JSON Schema you can specify object properties in the properties attribute.
-			'properties'           => [
-				'id' => [
-					'description'  => esc_html__('Unique identifier for the object.', 'my-textdomain'),
-					'type'         => 'integer',
-					'context'      => ['view', 'edit', 'embed'],
-					'readonly'     => true,
-				],
-				'url' => [
-					'description'  => esc_html__('The content for the object.', 'my-textdomain'),
-					'type'         => 'string',
-				],
-				'categories' => [
-					'description'  => esc_html__('The categories for the object.', 'my-textdomain'),
-					'type'         => 'array',
-				],
-			],
-		];
-
-		return $this->schema;
-	}
-
-	// Sets up the proper HTTP status code for authorization.
-	public function authorization_status_code()
-	{
-		$status = 401;
-
-		if (is_user_logged_in()) {
-			$status = 403;
-		}
-
-		return $status;
+		$message = ['message' => 'get_random_picture called with ID: ' . $id, 'data' => []];
+		return new WP_REST_Response($message, 200);
 	}
 }

@@ -251,13 +251,13 @@ class PL_REST_DB
 			TMP.palette
 			FROM
 			( SELECT
-							p.ID as id,
-							p.post_content as description,
-							metadata.post_title as title,
-							p.guid as img_url,
-							CONCAT (metadata.post_title , '|' , IFNULL(c.name, '') ) AS keywords,
-							metadata.meta_value,
-							metadata_palette.meta_value as palette
+					p.ID as id,
+					p.post_content as description,
+					metadata.post_title as title,
+					p.guid as img_url,
+					CONCAT (metadata.post_title , '|' , IFNULL(c.name, '') ) AS keywords,
+					metadata.meta_value,
+					metadata_palette.meta_value as palette
 			FROM
 					{$wpdb->prefix}posts AS p
 					LEFT JOIN {$wpdb->prefix}postmeta AS pm ON p.ID = pm.post_id

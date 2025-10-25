@@ -52,8 +52,9 @@ class PhotoLibrary
 	 */
 	public static function register_rest_routes(): void
 	{
-		error_log("register_rest_routes init");
+		error_log("PhotoLibrary::register_rest_routes called");
 		$photo_library_route = new PhotoLibrary_Route();
 		$photo_library_route->register_routes();
+		error_log("PhotoLibrary::register_rest_routes completed");
 	}
 }

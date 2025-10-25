@@ -38,9 +38,9 @@ require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.p
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
 
 // Add a new prefix for REST API endpoints.
-add_filter('rest_url_prefix', function () {
-	return 'api';
-});
+// add_filter('rest_url_prefix', function () {
+// 	return 'api';
+// });
 
 add_action('init', ['PhotoLibrary', 'init']);
 

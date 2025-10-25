@@ -1,0 +1,7 @@
+Endpoint,Method,Full URL,Description,Parameters,Response Type,Callback Function,Permission,Status
+/test,GET,https://phototheque-wp.ddev.site/api/photo-library/v1/test,Route de test pour vérifier que l'API fonctionne,Aucun,JSON,PhotoLibrary_Route::test_request,Public (__return_true),✅ Testé - Fonctionnel
+/pictures/all,GET,https://phototheque-wp.ddev.site/api/photo-library/v1/pictures/all,Récupère toutes les images de la photothèque,Aucun,JSON Array,get_pictures,Public (__return_true),✅ Testé - Fonctionnel
+/pictures/random/{id},GET,https://phototheque-wp.ddev.site/api/photo-library/v1/pictures/random/1,Récupère une image aléatoire,id (integer): ID de l'image,JSON Object,get_random_picture,Public (__return_true),✅ Testé - Fonctionnel
+/pictures/{id},GET,https://phototheque-wp.ddev.site/api/photo-library/v1/pictures/123,Récupère une image spécifique par son ID,id (integer): ID unique de l'image,JSON Object,get_pictures_by_id,Public (__return_true),✅ Testé - Fonctionnel
+/pictures/by_keywords,POST,https://phototheque-wp.ddev.site/api/photo-library/v1/pictures/by_keywords,Récupère les images correspondant à des mots-clés,"Body JSON: {""keyword"": ""string""}",JSON Array,get_pictures_by_keyword,Public (__return_true),✅ Testé - Fonctionnel
+/pictures/keywords,GET,https://phototheque-wp.ddev.site/api/photo-library/v1/pictures/keywords,Récupère la liste de tous les mots-clés disponibles,Aucun,JSON Array,get_keywords,Public (__return_true),✅ Testé - Fonctionnel

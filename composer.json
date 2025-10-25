@@ -3,7 +3,7 @@
     "description": "Wordpress plugin to share image to react phototeque app.",
     "type": "project",
     "require": {
-        "ksubileau/color-thief-php": "^2.0"
+        "ksubileau/color-thief-php": "^2.0.2"
     },
     "require-dev": {
         "joachim-n/composer-manifest": "^1.1"

@@ -10,16 +10,15 @@ use ColorThief\ColorThief;
  */
 class PhotoLibrarySchema
 {
-	protected $plRestDb;
 	/**
 	 * Constructeur de la classe PhotoLibrarySchema.
 	 *
 	 * @param mixed $schema
 	 */
-	public function __construct(PL_REST_DB $pL_REST_DB = NULL)
+	public function __construct(protected PL_REST_DB $plRestDb)
 	{
-		if ($pL_REST_DB) {
-			$this->plRestDb = $pL_REST_DB;
+		if ($plRestDb) {
+			$this->plRestDb = $plRestDb;
 		}
 	}
 
@@ -93,6 +92,7 @@ class PhotoLibrarySchema
 		$schema['height'] = $metadata['height'];
 		$schema['src'] = $metadata['sizes'];
 		$schema['src']['original'] = $this->getSourceUrl($picture);
+		$schema['metadata'] = NULL;
 
 		if (
 			isset($metadata['image_meta']['keywords']) &&  count($metadata['image_meta']['keywords'])

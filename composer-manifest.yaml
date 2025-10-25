@@ -1,6 +1,0 @@
-packages:
-    joachim-n/composer-manifest: 1.1.7
-    ksubileau/color-thief-php: v2.0.1
-    symfony/deprecation-contracts: v3.5.1
-    symfony/polyfill-ctype: v1.31.0
-    symfony/yaml: v7.2.0
