@@ -25,13 +25,13 @@ if (! defined('ABSPATH')) {
 
 if (!function_exists('add_action')) {
 	error_log('add_action error');
-	echo 'Hi there!  I\'m just a plugin, not much I can do when called directly.';
 	exit;
 }
 
 define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
 
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-data-handler.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';

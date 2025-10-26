@@ -10,12 +10,14 @@ use ColorThief\ColorThief;
  */
 class PhotoLibrarySchema
 {
+	protected PL_REST_DB $plRestDb;
+
 	/**
 	 * Constructeur de la classe PhotoLibrarySchema.
 	 *
 	 * @param mixed $schema
 	 */
-	public function __construct(protected PL_REST_DB $plRestDb)
+	public function __construct(?PL_REST_DB $plRestDb = NULL)
 	{
 		if ($plRestDb) {
 			$this->plRestDb = $plRestDb;
