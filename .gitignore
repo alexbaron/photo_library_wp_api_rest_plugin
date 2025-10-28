@@ -46,8 +46,21 @@ wp-config.php
 # Note: If you wish to whitelist themes,
 # uncomment the next line
 #/wp-content/themes
+# Ignorer les fichiers de configuration sensibles
+.env
+
+# Ignorer les dépendances
+/vendor/
+composer.lock
+
+# Ignorer les dossiers de développement
 .vscode
 backup
 /src/old
-/vendor
-composer.lock
+
+# Ignorer les fichiers de logs
+*.log
+
+# Ignorer les fichiers temporaires
+.DS_Store
+Thumbs.db

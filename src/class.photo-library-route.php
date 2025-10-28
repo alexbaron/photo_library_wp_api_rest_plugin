@@ -73,8 +73,8 @@ class PhotoLibrary_Route extends WP_REST_Controller
      *
      * @return void
      */
-    public function __construct(
-    ) {
+    public function __construct()
+    {
         $this->namespace    = 'photo-library/v1';
         $this->resourceName = 'pictures';
         $this->init_wplr_sync();
@@ -139,69 +139,119 @@ class PhotoLibrary_Route extends WP_REST_Controller
      */
     public function register_routes(): void
     {
-        error_log("PhotoLibrary_Route::register_routes called");
+        error_log('PhotoLibrary_Route::register_routes called');
 
         // test purpose
-        register_rest_route($this->namespace, '/test', [
-            'methods'  => WP_REST_Server::READABLE,
-            'callback' => ['PhotoLibrary_Route', 'test_request'],
-            'permission_callback' => '__return_true',
-        ]);
-        error_log("Test route registered: " . $this->namespace . '/test');
+        register_rest_route(
+            $this->namespace,
+            '/test',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( 'PhotoLibrary_Route', 'test_request' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+        error_log('Test route registered: ' . $this->namespace . '/test');
+
+        // Configuration debug endpoint.
+        register_rest_route(
+            $this->namespace,
+            '/config',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( 'PhotoLibrary_Route', 'get_config_debug' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+
+        // Test data handler endpoint.
+        register_rest_route(
+            $this->namespace,
+            '/test-data/' . '(?P<id>[\d]+)',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'test_data_handler' ),
+                'permission_callback' => '__return_true',
+            )
+        );
 
         // get all pictures
-        register_rest_route($this->namespace, '/' . $this->resourceName . '/all', [
-            [
-                'methods'   => WP_REST_Server::READABLE,
-                'callback'  => [$this, 'get_pictures'],
-                'permission_callback' => '__return_true',
-            ],
-        ]);
+        register_rest_route(
+            $this->namespace,
+            '/' . $this->resourceName . '/all',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( $this, 'get_pictures' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
 
         // pass id = 0 to get a random picture
-        register_rest_route($this->namespace, '/' . $this->resourceName . '/random' . '/(?P<id>[\d]+)', [
-            [
-                'methods'   => WP_REST_Server::READABLE,
-                'callback'  => [$this, 'get_random_picture'],
-                'permission_callback' => '__return_true',
-            ],
-        ]);
+        register_rest_route(
+            $this->namespace,
+            '/' . $this->resourceName . '/random' . '(?:/(?P<id>[\d]+))?',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( $this, 'get_random_picture' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
 
         // Get pictures by keyword
-        register_rest_route($this->namespace, '/' . $this->resourceName . '/by_keywords', [
-            [
-                'methods'   => WP_REST_Server::CREATABLE,
-                'callback'  => [$this, 'get_pictures_by_keyword'],
-                'permission_callback' => '__return_true',
-            ],
-        ]);
+        register_rest_route(
+            $this->namespace,
+            '/' . $this->resourceName . '/by_keywords',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::CREATABLE,
+                    'callback'            => array( $this, 'get_pictures_by_keyword' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
 
-        //Get all keywords
-        register_rest_route($this->namespace, '/' . $this->resourceName . '/keywords', [
-            [
-                'methods'   => WP_REST_Server::READABLE,
-                'callback'  => [$this, 'get_keywords'],
-                'permission_callback' => '__return_true',
-            ],
-        ]);
+        // Get all keywords
+        register_rest_route(
+            $this->namespace,
+            '/' . $this->resourceName . '/keywords',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( $this, 'get_keywords' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
 
-        //Get hierarchy
-        register_rest_route($this->namespace, '/' . $this->resourceName . '/hierarchy', [
-            [
-                'methods'   => WP_REST_Server::READABLE,
-                'callback'  => [$this, 'get_hierarchy'],
-                'permission_callback' => '__return_true',
-            ],
-        ]);
+        // Get hierarchy
+        register_rest_route(
+            $this->namespace,
+            '/' . $this->resourceName . '/hierarchy',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( $this, 'get_hierarchy' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
 
         // Get picture by id
-        register_rest_route($this->namespace, '/' . $this->resourceName . '/(?P<id>[\d]+)', [
-            [
-                'methods'   => WP_REST_Server::READABLE,
-                'callback'  => [$this, 'get_pictures_by_id'],
-                'permission_callback' => '__return_true',
-            ],
-        ]);
+        register_rest_route(
+            $this->namespace,
+            '/picture/(?P<id>[\d]+)',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( $this, 'get_picture_by_id' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
     }
 
     /**
@@ -219,8 +269,61 @@ class PhotoLibrary_Route extends WP_REST_Controller
      */
     public static function test_request(): WP_REST_Response
     {
-        $message = ['message' => 'PhotoLibrary REST API is working!'];
+        $message = array( 'message' => 'PhotoLibrary REST API is working!' );
         return new WP_REST_Response($message, 200);
+    }
+
+    /**
+     * Configuration Debug Endpoint
+     *
+     * Shows environment settings, paths, and validation status.
+     *
+     * @since 0.2.0
+     *
+     * @return WP_REST_Response Configuration debug information
+     *
+     * @example GET /wp-json/photo-library/v1/config
+     */
+    public static function get_config_debug(): WP_REST_Response
+    {
+        $upload_dir = wp_upload_dir();
+        $debug_info = array(
+            'plugin_version' => '0.2.0',
+            'wordpress_version' => get_bloginfo('version'),
+            'upload_dir' => $upload_dir,
+            'php_version' => PHP_VERSION,
+        );
+        $debug_info['message'] = 'PhotoLibrary Configuration Debug Info';
+        $debug_info['timestamp'] = current_time('mysql');
+
+        return new WP_REST_Response($debug_info, 200);
+    }    /**
+     * Test Data Handler Endpoint
+     *
+     * Tests the data handler functionality with a specific media ID.
+     *
+     * @since 0.2.0
+     *
+     * @param WP_REST_Request $request REST request containing media ID.
+     * @return WP_REST_Response Media data with configuration info.
+     */
+    public function test_data_handler($request): WP_REST_Response
+    {
+        $media_id = $request->get_param('id');
+        $upload_dir = wp_upload_dir();
+
+        $data = array(
+            'message'          => 'Data Handler Test',
+            'media_id'         => $media_id,
+            'upload_info'      => array(
+                'basedir' => $upload_dir['basedir'],
+                'baseurl' => $upload_dir['baseurl'],
+            ),
+            'media_data'       => PL_DATA_HANDLER::get_data_from_media($media_id),
+            'timestamp'        => current_time('mysql'),
+        );
+
+        return new WP_REST_Response($data, 200);
     }
 
     /**
@@ -256,8 +359,8 @@ class PhotoLibrary_Route extends WP_REST_Controller
      */
     public function get_pictures_by_keyword($request): WP_REST_Response
     {
-        $keywords = $request->get_param('search') ?? [];
-        $data = PL_REST_DB::getMediaByKeywords($keywords);
+        $keywords = $request->get_param('search') ?? array();
+        $data     = PL_REST_DB::getMediaByKeywords($keywords);
         return new WP_REST_Response($data, 200);
     }
 
@@ -289,13 +392,16 @@ class PhotoLibrary_Route extends WP_REST_Controller
      */
     public function get_keywords(): WP_REST_Response
     {
-        $data = ['message' => 'get_keywords called', 'data' => []];
+        $data = array(
+            'message' => 'get_keywords called',
+            'data'    => array(),
+        );
 
         if ($this->is_wplr_available()) {
             try {
                 // Use WP/LR Sync keyword hierarchy
                 $keywords_hierarchy = $this->wplrSync->get_keywords_hierarchy();
-                $data['data'] = PL_DATA_HANDLER::filter_keywords_to_flat_array($keywords_hierarchy);
+                $data['data']       = PL_DATA_HANDLER::filter_keywords_to_flat_array($keywords_hierarchy);
                 // $data['source'] = 'wplr_sync';
             } catch (Exception $e) {
                 error_log('PhotoLibrary: Error getting keywords from WP/LR Sync: ' . $e->getMessage());
@@ -303,7 +409,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
             }
         } else {
             // Fallback to existing method
-            $data['data'] = PL_REST_DB::getKeywords();
+            $data['data']   = PL_REST_DB::getKeywords();
             $data['source'] = 'fallback_db';
         }
 
@@ -345,13 +451,16 @@ class PhotoLibrary_Route extends WP_REST_Controller
      */
     public function get_hierarchy(): WP_REST_Response
     {
-        $data = ['message' => 'get_hierarchy called', 'data' => []];
+        $data = array(
+            'message' => 'get_hierarchy called',
+            'data'    => array(),
+        );
 
         if ($this->is_wplr_available()) {
             try {
                 // Use WP/LR Sync keyword hierarchy
                 $keywords_hierarchy = $this->wplrSync->get_hierarchy();
-                $data['data'] = $keywords_hierarchy;
+                $data['data']       = $keywords_hierarchy;
                 // $data['source'] = 'wplr_sync';
             } catch (Exception $e) {
                 error_log('PhotoLibrary: Error getting hierarchy from WP/LR Sync: ' . $e->getMessage());
@@ -359,7 +468,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
             }
         } else {
             // Fallback to existing method
-            $data['data'] = PL_REST_DB::getKeywords();
+            $data['data']   = PL_REST_DB::getKeywords();
             $data['source'] = 'fallback_db';
         }
 
@@ -378,15 +487,50 @@ class PhotoLibrary_Route extends WP_REST_Controller
      *
      * @return WP_REST_Response Picture details with metadata
      *
-     * @example GET /wp-json/photo-library/v1/pictures/123
+     * @example GET /wp-json/photo-library/v1/picture/92928
      *
      * @todo Implement actual picture retrieval logic
      */
-    public function get_pictures_by_id($request): WP_REST_Response
+    public function get_picture_by_id($request): WP_REST_Response
     {
-        $id = $request->get_param('id');
-        $message = ['message' => 'get_pictures_by_id called with ID: ' . $id, 'data' => []];
-        return new WP_REST_Response($message, 200);
+        $id      = $request->get_param('id');
+        $message = array(
+            'message' => 'get_picture_by_id called with ID: ' . $id,
+            'data'    => array(),
+        );
+
+        $data['data'] = PL_DATA_HANDLER::get_data_from_media($id);
+
+        // $debug['file_path']   = $file_path;
+        // $debug['file_exists'] = file_exists( $file_path );
+
+        // if ( ! $file_path || ! file_exists( $file_path ) ) {
+        // 		return array(
+        // 			'media_id' => $media_id,
+        // 			'keywords' => array(),
+        // 			'count'    => 0,
+        // 			'error'    => 'Fichier introuvable',
+        // 			'debug'    => $debug,
+        // 		);
+        // }
+
+        // if ($this->is_wplr_available()) {
+        // try {
+        // Use WP/LR Sync keyword hierarchy
+        // $keywords_hierarchy = $this->wplrSync->get_hierarchy();
+        // $data['data'] = $keywords_hierarchy;
+        // $data['source'] = 'wplr_sync';
+        // } catch (Exception $e) {
+        // error_log('PhotoLibrary: Error getting hierarchy from WP/LR Sync: ' . $e->getMessage());
+        // $data['error'] = 'WP/LR Sync hierarchy unavailable';
+        // }
+        // } else {
+        // Fallback to existing method
+        // $data['data'] = PL_REST_DB::getKeywords();
+        // $data['source'] = 'fallback_db';
+        // }
+
+        return new WP_REST_Response($data, 200);
     }
 
     /**
@@ -408,7 +552,10 @@ class PhotoLibrary_Route extends WP_REST_Controller
      */
     public function get_pictures($request): WP_REST_Response
     {
-        $message = ['message' => 'get_pictures called', 'data' => []];
+        $message = array(
+            'message' => 'get_pictures called',
+            'data'    => array(),
+        );
         return new WP_REST_Response($message, 200);
     }
 
@@ -431,8 +578,12 @@ class PhotoLibrary_Route extends WP_REST_Controller
      */
     public function get_random_picture($request): WP_REST_Response
     {
-        $id = $request->get_param('id');
-        $message = ['message' => 'get_random_picture called with ID: ' . $id, 'data' => []];
-        return new WP_REST_Response($message, 200);
+        $id   = $request->get_param('id');
+        $data = array(
+            'message' => 'get_random_picture called with ID: ' . $id,
+            'data'    => array(),
+        );
+        $data = PL_REST_DB::getRandomPicture($id);
+        return new WP_REST_Response($data, 200);
     }
 }

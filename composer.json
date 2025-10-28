@@ -6,7 +6,9 @@
         "ksubileau/color-thief-php": "^2.0.2"
     },
     "require-dev": {
-        "joachim-n/composer-manifest": "^1.1"
+        "joachim-n/composer-manifest": "^1.1",
+        "squizlabs/php_codesniffer": "^3.13",
+        "wp-coding-standards/wpcs": "^3.2"
     },
     "autoload": {
         "psr-4": {
@@ -21,7 +23,15 @@
     ],
     "config": {
         "allow-plugins": {
-            "joachim-n/composer-manifest": true
+            "joachim-n/composer-manifest": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true
         }
+    },
+    "scripts": {
+        "phpcs": "phpcs --standard=phpcs.xml",
+        "phpcs:report": "phpcs --standard=phpcs.xml --report=summary",
+        "phpcbf": "phpcbf --standard=phpcs.xml",
+        "cs:check": "@phpcs:report",
+        "cs:fix": "@phpcbf"
     }
 }
