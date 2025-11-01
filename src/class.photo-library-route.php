@@ -153,13 +153,35 @@ class PhotoLibrary_Route extends WP_REST_Controller
         );
         error_log('Test route registered: ' . $this->namespace . '/test');
 
-        // Configuration debug endpoint.
+        // Configuration debug endpoint
         register_rest_route(
             $this->namespace,
             '/config',
             array(
                 'methods'             => WP_REST_Server::READABLE,
-                'callback'            => array( 'PhotoLibrary_Route', 'get_config_debug' ),
+                'callback'            => array( $this, 'get_config_debug' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+
+        // Cache statistics endpoint pour serveur mutualisé
+        register_rest_route(
+            $this->namespace,
+            '/cache/stats',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'get_cache_stats' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+
+        // Cache flush endpoint (utile pour les serveurs mutualisés)
+        register_rest_route(
+            $this->namespace,
+            '/cache/flush',
+            array(
+                'methods'             => WP_REST_Server::DELETABLE,
+                'callback'            => array( $this, 'flush_cache' ),
                 'permission_callback' => '__return_true',
             )
         );
@@ -270,6 +292,10 @@ class PhotoLibrary_Route extends WP_REST_Controller
     public static function test_request(): WP_REST_Response
     {
         $message = array( 'message' => 'PhotoLibrary REST API is working!' );
+        PL_Cache_Manager::set_test_cache();
+
+        $cacheTest = PL_Cache_Manager::get_test_cache( 'pl_test');
+        $message['cache_test'] = $cacheTest;
         return new WP_REST_Response($message, 200);
     }
 
@@ -357,10 +383,39 @@ class PhotoLibrary_Route extends WP_REST_Controller
      *   ]
      * }
      */
+    /**
+     * Search pictures by keywords
+     *
+     * Searches for pictures that are tagged with any of the provided keywords.
+     * Uses cached results when available for improved performance.
+     *
+     * @since 0.1.0
+     * @since 0.2.0 Added caching for search results
+     *
+     * @param WP_REST_Request $request REST request containing search parameters
+     *
+     * @return WP_REST_Response Array of matching pictures with metadata
+     */
     public function get_pictures_by_keyword($request): WP_REST_Response
     {
         $keywords = $request->get_param('search') ?? array();
-        $data     = PL_REST_DB::getMediaByKeywords($keywords);
+
+        // Vérification du cache pour cette recherche
+        $cached_results = PL_Cache_Manager::get_search_results_cached($keywords);
+        if ($cached_results !== false && PL_Cache_Manager::is_search_cache_valid()) {
+            $cached_results['cached'] = true;
+            $cached_results['cache_time'] = current_time('mysql');
+            return new WP_REST_Response($cached_results, 200);
+        }
+
+        // Exécution de la recherche
+        $data = PL_REST_DB::getMediaByKeywords($keywords);
+        // $data['cached'] = false;
+        $data['cached'] = 'not cached';
+
+        // Mise en cache des résultats
+        PL_Cache_Manager::set_search_results_cache($keywords, $data);
+
         return new WP_REST_Response($data, 200);
     }
 
@@ -369,10 +424,11 @@ class PhotoLibrary_Route extends WP_REST_Controller
      *
      * Retrieves all keywords/tags available in the system as a flat array.
      * Prioritizes WP/LR Sync data when available, falls back to direct
-     * database queries otherwise.
+     * database queries otherwise. Utilise le cache pour optimiser les performances.
      *
      * @since 0.1.0
      * @since 0.2.0 Added WP/LR Sync integration and hierarchy flattening
+     * @since 0.2.0 Added caching for better performance
      *
      * @return WP_REST_Response Flat array of all keywords with their IDs
      *
@@ -387,14 +443,24 @@ class PhotoLibrary_Route extends WP_REST_Controller
      *     "125": "nature",
      *     "126": "portrait"
      *   },
-     *   "source": "wplr_sync" // or "fallback_db"
+     *   "source": "wplr_sync", // or "fallback_db"
+     *   "cached": true // indique si les données viennent du cache
      * }
      */
     public function get_keywords(): WP_REST_Response
     {
+        // Tentative de récupération depuis le cache
+        $cached_data = PL_Cache_Manager::get_keywords_cached();
+        if ($cached_data !== false) {
+            $cached_data['cached'] = true;
+            $cached_data['cache_time'] = current_time('mysql');
+            return new WP_REST_Response($cached_data, 200);
+        }
+
         $data = array(
             'message' => 'get_keywords called',
             'data'    => array(),
+            'cached'  => false,
         );
 
         if ($this->is_wplr_available()) {
@@ -402,16 +468,22 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 // Use WP/LR Sync keyword hierarchy
                 $keywords_hierarchy = $this->wplrSync->get_keywords_hierarchy();
                 $data['data']       = PL_DATA_HANDLER::filter_keywords_to_flat_array($keywords_hierarchy);
-                // $data['source'] = 'wplr_sync';
+                $data['source']     = 'wplr_sync';
             } catch (Exception $e) {
                 error_log('PhotoLibrary: Error getting keywords from WP/LR Sync: ' . $e->getMessage());
                 $data['error'] = 'WP/LR Sync keywords unavailable';
+                // Fallback to database
+                $data['data']   = PL_REST_DB::getKeywords();
+                $data['source'] = 'fallback_db';
             }
         } else {
             // Fallback to existing method
             $data['data']   = PL_REST_DB::getKeywords();
             $data['source'] = 'fallback_db';
         }
+
+        // Mise en cache des données pour les prochaines requêtes
+        PL_Cache_Manager::set_keywords_cache($data);
 
         return new WP_REST_Response($data, 200);
     }
@@ -479,56 +551,39 @@ class PhotoLibrary_Route extends WP_REST_Controller
      * Get specific picture by ID
      *
      * Retrieves detailed information about a specific picture using its
-     * WordPress media ID.
+     * WordPress media ID. Uses caching for improved performance.
      *
      * @since 0.1.0
+     * @since 0.2.0 Added caching for picture data
      *
      * @param WP_REST_Request $request REST request containing the picture ID
      *
      * @return WP_REST_Response Picture details with metadata
      *
      * @example GET /wp-json/photo-library/v1/picture/92928
-     *
-     * @todo Implement actual picture retrieval logic
      */
     public function get_picture_by_id($request): WP_REST_Response
     {
-        $id      = $request->get_param('id');
-        $message = array(
+        $id = $request->get_param('id');
+
+        // Vérification du cache pour cette image
+        $cached_data = PL_Cache_Manager::get_picture_by_id_cached($id);
+        if ($cached_data !== false) {
+            $cached_data['cached'] = true;
+            $cached_data['cache_time'] = current_time('mysql');
+            return new WP_REST_Response($cached_data, 200);
+        }
+
+        $data = array(
             'message' => 'get_picture_by_id called with ID: ' . $id,
             'data'    => array(),
+            'cached'  => false,
         );
 
         $data['data'] = PL_DATA_HANDLER::get_data_from_media($id);
 
-        // $debug['file_path']   = $file_path;
-        // $debug['file_exists'] = file_exists( $file_path );
-
-        // if ( ! $file_path || ! file_exists( $file_path ) ) {
-        // 		return array(
-        // 			'media_id' => $media_id,
-        // 			'keywords' => array(),
-        // 			'count'    => 0,
-        // 			'error'    => 'Fichier introuvable',
-        // 			'debug'    => $debug,
-        // 		);
-        // }
-
-        // if ($this->is_wplr_available()) {
-        // try {
-        // Use WP/LR Sync keyword hierarchy
-        // $keywords_hierarchy = $this->wplrSync->get_hierarchy();
-        // $data['data'] = $keywords_hierarchy;
-        // $data['source'] = 'wplr_sync';
-        // } catch (Exception $e) {
-        // error_log('PhotoLibrary: Error getting hierarchy from WP/LR Sync: ' . $e->getMessage());
-        // $data['error'] = 'WP/LR Sync hierarchy unavailable';
-        // }
-        // } else {
-        // Fallback to existing method
-        // $data['data'] = PL_REST_DB::getKeywords();
-        // $data['source'] = 'fallback_db';
-        // }
+        // Mise en cache des données
+        PL_Cache_Manager::set_picture_by_id_cache($id, $data);
 
         return new WP_REST_Response($data, 200);
     }
@@ -585,5 +640,57 @@ class PhotoLibrary_Route extends WP_REST_Controller
         );
         $data = PL_REST_DB::getRandomPicture($id);
         return new WP_REST_Response($data, 200);
+    }
+
+    /**
+     * Get Cache Statistics
+     *
+     * Récupère les statistiques du cache WordPress pour le monitoring
+     * des performances, particulièrement utile sur serveur mutualisé.
+     *
+     * @since 0.2.0
+     *
+     * @return WP_REST_Response Cache statistics and configuration
+     *
+     * @example GET /wp-json/photo-library/v1/cache/stats
+     */
+    public function get_cache_stats(): WP_REST_Response
+    {
+        $stats = PL_Cache_Manager::get_cache_stats();
+        $stats['message'] = 'PhotoLibrary Cache Statistics';
+        $stats['timestamp'] = current_time('mysql');
+        $stats['server_info'] = array(
+            'memory_limit'    => ini_get('memory_limit'),
+            'max_execution_time' => ini_get('max_execution_time'),
+            'opcache_enabled' => function_exists('opcache_get_status') && opcache_get_status() !== false,
+        );
+
+        return new WP_REST_Response($stats, 200);
+    }
+
+    /**
+     * Flush Cache
+     *
+     * Vide le cache du plugin. Utile pour forcer le rafraîchissement
+     * des données sur serveur mutualisé.
+     *
+     * @since 0.2.0
+     *
+     * @return WP_REST_Response Confirmation of cache flush
+     *
+     * @example DELETE /wp-json/photo-library/v1/cache/flush
+     */
+    public function flush_cache(): WP_REST_Response
+    {
+        $success = PL_Cache_Manager::flush_all_cache();
+        PL_Cache_Manager::mark_content_updated();
+
+        $data = array(
+            'message'   => 'Cache flush completed',
+            'success'   => $success,
+            'timestamp' => current_time('mysql'),
+        );
+
+        return new WP_REST_Response($data, $success ? 200 : 500);
     }
 }

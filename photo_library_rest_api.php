@@ -28,8 +28,12 @@ if (! function_exists('add_action')) {
 define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
 
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-data-handler.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-cache.php';
+// Chargement des classes nécessaires
+require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-cache.php';
+require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-file-cache.php';
+require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-db.php';
+require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-data-handler.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
@@ -71,6 +75,12 @@ add_action(
 );
 
 add_action('rest_api_init', array( 'PhotoLibrary', 'register_rest_routes' ));
+
+// Cache invalidation hooks pour serveur mutualisé
+add_action('add_attachment', array( 'PL_Cache_Manager', 'mark_content_updated' ));
+add_action('edit_attachment', array( 'PL_Cache_Manager', 'mark_content_updated' ));
+add_action('delete_attachment', array( 'PL_Cache_Manager', 'mark_content_updated' ));
+add_action('set_object_terms', array( 'PL_Cache_Manager', 'mark_content_updated' ), 10, 4);
 
 register_activation_hook(__FILE__, array( 'PL_INSTALL', 'create_table' ));
 
