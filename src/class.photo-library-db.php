@@ -21,8 +21,7 @@ class PL_REST_DB {
 	public static function getRandomPicture( ?int $id = 0 ) {
 		global $wpdb;
 
-		$result = array();
-		// $count = $this->getWpDb()->get_var("SELECT COUNT(*) FROM {$this->getWpDb()->prefix}posts WHERE post_type = 'attachment' AND post_mime_type LIKE 'image%'");
+		$result = [];
 		$picture = $wpdb->get_row(
 			"
 			SELECT
@@ -43,7 +42,7 @@ class PL_REST_DB {
 		);
 
 		$photoLibrarySchema = new PhotoLibrarySchema();
-		$result['picture']  = $photoLibrarySchema->preparePictureDataAsArray( $picture );
+		$result['picture']  = $photoLibrarySchema->preparePictureDataAsArray( (object)$picture );
 		return $result;
 	}
 
@@ -129,7 +128,7 @@ class PL_REST_DB {
 			// Return an error message if an exception occurs.
 			return array( 'error' => $e->getMessage() );
 		}
-		return array();
+		return [];
 	}
 
 	/**
@@ -139,12 +138,12 @@ class PL_REST_DB {
 	 *
 	 * @return array An array of pictures that match the keywords.
 	 */
-	public static function getPicturesByKeywords( array $request = array(), $offset = 0 ): array {
+	public static function getPicturesByKeywords( array $request = [], $offset = 0 ): array {
 		try {
 			global $wpdb;
 
 			// Initialize the condition string for the SQL query.
-			$keywords = implode( '|', isset( $request['search'] ) ? array( $request['search'] ) : array() );
+			$keywords = implode( '|', isset( $request['search'] ) ? array( $request['search'] ) : [] );
 
 			$req = "SELECT
 			TMP.id,
@@ -156,11 +155,13 @@ class PL_REST_DB {
 					metadata.post_title as title,
 					p.guid as img_url,
 					metadata.meta_value,
+          wp_attachment_metadata.meta_value as attached_file,
 					SUBSTRING(metadata.meta_value,locate('keywords',metadata.meta_value) + LENGTH('keywords'), LENGTH(metadata.meta_value) ) as meta_keywords,
 					metadata_palette.meta_value as palette
 			FROM
 					{$wpdb->prefix}posts AS p
 					LEFT JOIN {$wpdb->prefix}postmeta AS pm ON p.ID = pm.post_id
+          LEFT JOIN {$wpdb->prefix}postmeta AS wp_attachment_metadata ON p.ID = wp_attachment_metadata.post_id AND wp_attachment_metadata.meta_key = '_wp_attachment_metadata'
 					LEFT JOIN (
 						SELECT
 										p_temp.ID,
@@ -208,14 +209,13 @@ class PL_REST_DB {
 
 			// Return an empty array if no results are found.
 			if ( ! $result ) {
-				return array();
+				return [];
 			}
 			return $result;
 		} catch ( \Exception $e ) {
 			// Return an error message if an exception occurs.
 			return array( 'error' => $e->getMessage() );
 		}
-		return array();
 	}
 
 	/**
@@ -303,7 +303,7 @@ class PL_REST_DB {
 
 			// Return an empty array if no results are found.
 			if ( ! $result ) {
-				return array();
+				return [];
 			}
 			return $result;
 		} catch ( \Exception $e ) {
@@ -318,7 +318,7 @@ class PL_REST_DB {
 	 * @return array
 	 */
 	public static function getKeywords(): array {
-		$keywords = array();
+		$keywords = [];
 		try {
 			global $wpdb;
 
@@ -430,7 +430,7 @@ class PL_REST_DB {
 	 * @param array $keywords List of keyword names to search for
 	 * @return array Array containing media IDs and their paths
 	 */
-	public static function getMediaByKeywords( array $keywords = array() ): array {
+	public static function getMediaByKeywords( array $keywords = [] ): array {
 		if ( empty( $keywords ) ) {
 			return array( 'error' => 'No keywords provided' );
 		}
@@ -446,18 +446,21 @@ class PL_REST_DB {
 
 			$result = array(
 				'keywords_searched' => $keywords,
-				'media'             => array(),
+				'pictures'          => [],
 				'total_found'       => 0,
-				'keywords_found'    => array(),
+				'keywords_found'    => [],
 			);
 
 			// Step 1: Retrieve tag IDs corresponding to keywords
-			$tag_ids  = array();
+			$tag_ids  = [];
 			$tbl_meta = $wpdb->prefix . 'lrsync_meta';
 
 			// Prepare WHERE condition to search for keywords
 			$keyword_placeholders = implode( ',', array_fill( 0, count( $keywords ), '%s' ) );
-			$sql                  = "SELECT id, value as name
+			$sql                  =
+      "SELECT
+        id,
+        value as name
 					FROM $tbl_meta
 					WHERE name = 'tag_name'
 					AND value IN ($keyword_placeholders)";
@@ -475,7 +478,7 @@ class PL_REST_DB {
 			}
 
 			// Step 2: Retrieve all media associated with these tags
-			$media_ids = array();
+			$media_ids = [];
 			foreach ( $tag_ids as $tag_id ) {
 				$media_for_tag = $wplr->get_media_from_tag( $tag_id );
 				$media_ids     = array_merge( $media_ids, $media_for_tag );
@@ -491,14 +494,20 @@ class PL_REST_DB {
 
 			// Step 3: Retrieve detailed media information
 			$media_placeholders = implode( ',', array_fill( 0, count( $media_ids ), '%d' ) );
-			$media_sql          = "SELECT
+			$media_sql          =
+            "SELECT
 							p.ID as id,
 							p.post_title as title,
-							p.guid as url,
-							pm.meta_value as attached_file
+							pm.meta_value as attached_file,
+              p.post_content as description,
+              p.guid as img_url,
+              metadata.meta_value as metadata,
+              palette.meta_value as palette
 						FROM {$wpdb->prefix}posts p
 						LEFT JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
 							AND pm.meta_key = '_wp_attached_file'
+            LEFT JOIN {$wpdb->prefix}postmeta AS metadata ON p.ID = metadata.post_id AND metadata.meta_key = '_wp_attachment_metadata'
+			      LEFT JOIN {$wpdb->prefix}postmeta AS palette ON p.ID = palette.post_id AND palette.meta_key = '_pl_palette'
 						WHERE p.ID IN ($media_placeholders)
 						AND p.post_type = 'attachment'
 						AND p.post_mime_type LIKE 'image%'
@@ -506,33 +515,12 @@ class PL_REST_DB {
 
 			$media_data = $wpdb->get_results( $wpdb->prepare( $media_sql, ...$media_ids ), ARRAY_A );
 
-			// Step 4: Enrich data with tags for each media item
 			foreach ( $media_data as &$media ) {
-				$media_tags = $wplr->get_tags_from_media( $media['id'] );
-				$tag_names  = array();
-
-				// Retrieve tag names
-				if ( ! empty( $media_tags ) ) {
-					$tag_placeholders = implode( ',', array_fill( 0, count( $media_tags ), '%d' ) );
-					$tag_sql          = "SELECT value as name
-								FROM $tbl_meta
-								WHERE name = 'tag_name'
-								AND id IN ($tag_placeholders)";
-
-					$tag_results = $wpdb->get_results( $wpdb->prepare( $tag_sql, ...$media_tags ), ARRAY_A );
-					foreach ( $tag_results as $tag ) {
-						$tag_names[] = $tag['name'];
-					}
-				}
-
-				$media['tags'] = $tag_names;
-				$media['path'] = $media['attached_file'];
-
-				// Clean up data
-				unset( $media['attached_file'] );
+        $photoLibrarySchema = new PhotoLibrarySchema();
+		    $result['pictures'][]  = $photoLibrarySchema->preparePictureDataAsArray(  (object)$media );
 			}
 
-			$result['media']       = $media_data;
+			// $result['media']       = $media_data;
 			$result['total_found'] = count( $media_data );
 			$result['message']     = "Found {$result['total_found']} media(s) for keywords: " . implode( ', ', $result['keywords_found'] );
 
@@ -550,14 +538,14 @@ class PL_REST_DB {
 	 * @param array $keywords Liste des noms de keywords à rechercher
 	 * @return array Array simple avec id et path de chaque média
 	 */
-	public static function getMediaIdsByKeywords( array $keywords = array() ): array {
+	public static function getMediaIdsByKeywords( array $keywords = [] ): array {
 		$full_result = self::getMediaByKeywords( $keywords );
 
 		if ( isset( $full_result['error'] ) ) {
 			return $full_result;
 		}
 
-		$simple_result = array();
+		$simple_result = [];
 		foreach ( $full_result['media'] as $media ) {
 			$simple_result[] = array(
 				'id'   => $media['id'],
