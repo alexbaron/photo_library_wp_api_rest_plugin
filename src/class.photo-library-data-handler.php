@@ -83,7 +83,8 @@ class PL_DATA_HANDLER
         };
 
         $traverse($keywords_hierarchy);
-        rsort($flat_keywords);
+        $collator = new Collator('fr_FR');
+        $collator->sort($flat_keywords);
 
         return $flat_keywords;
     }

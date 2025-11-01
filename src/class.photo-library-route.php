@@ -22,6 +22,10 @@
  *
  * REST API Endpoints:
  * - GET /wp-json/photo-library/v1/test                    - API health check
+ * - GET /wp-json/photo-library/v1/config                  - Configuration debug info
+ * - GET /wp-json/photo-library/v1/cache/stats             - Cache statistics
+ * - DELETE /wp-json/photo-library/v1/cache/flush          - Flush cache
+ * - GET /wp-json/photo-library/v1/test-data/{id}          - Test data handler
  * - GET /wp-json/photo-library/v1/pictures/all            - Get all pictures
  * - GET /wp-json/photo-library/v1/pictures/{id}           - Get picture by ID
  * - GET /wp-json/photo-library/v1/pictures/random/{id}    - Get random picture
@@ -458,8 +462,8 @@ class PhotoLibrary_Route extends WP_REST_Controller
         }
 
         $data = array(
-            'message' => 'get_keywords called',
-            'data'    => array(),
+            'message' => '',
+            'keywords'=> [],
             'cached'  => false,
         );
 
@@ -467,18 +471,18 @@ class PhotoLibrary_Route extends WP_REST_Controller
             try {
                 // Use WP/LR Sync keyword hierarchy
                 $keywords_hierarchy = $this->wplrSync->get_keywords_hierarchy();
-                $data['data']       = PL_DATA_HANDLER::filter_keywords_to_flat_array($keywords_hierarchy);
+                $data['keywords']       = PL_DATA_HANDLER::filter_keywords_to_flat_array($keywords_hierarchy);
                 $data['source']     = 'wplr_sync';
             } catch (Exception $e) {
                 error_log('PhotoLibrary: Error getting keywords from WP/LR Sync: ' . $e->getMessage());
                 $data['error'] = 'WP/LR Sync keywords unavailable';
                 // Fallback to database
-                $data['data']   = PL_REST_DB::getKeywords();
+                $data['keywords']   = PL_REST_DB::getKeywords();
                 $data['source'] = 'fallback_db';
             }
         } else {
             // Fallback to existing method
-            $data['data']   = PL_REST_DB::getKeywords();
+            $data['keywords']   = PL_REST_DB::getKeywords();
             $data['source'] = 'fallback_db';
         }
 
