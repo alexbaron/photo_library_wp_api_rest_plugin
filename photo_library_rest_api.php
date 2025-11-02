@@ -37,10 +37,12 @@ require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-data-handler.p
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-react-app.php';
 
 // Initialize configuration.
 
 add_action('init', array( 'PhotoLibrary', 'init' ));
+add_action('init', array( 'PL_React_App', 'init' ));
 
 // Handle CORS headers for all REST API requests - multiple hooks for maximum coverage.
 add_filter('rest_pre_serve_request', array( 'PhotoLibrary', 'rest_send_cors_headers' ));
@@ -83,5 +85,6 @@ add_action('delete_attachment', array( 'PL_Cache_Manager', 'mark_content_updated
 add_action('set_object_terms', array( 'PL_Cache_Manager', 'mark_content_updated' ), 10, 4);
 
 register_activation_hook(__FILE__, array( 'PL_INSTALL', 'create_table' ));
+register_activation_hook(__FILE__, array( 'PL_React_App', 'flush_rewrite_rules' ));
 
 $installation = new PL_INSTALL();
