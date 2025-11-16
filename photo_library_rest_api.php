@@ -38,11 +38,29 @@ require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-install
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-react-app.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-wordpress-page.php';
 
 // Initialize configuration.
 
 add_action('init', array( 'PhotoLibrary', 'init' ));
 add_action('init', array( 'PL_React_App', 'init' ));
+add_action('init', array( 'PL_WordPress_Page', 'init' ));
+
+// Hooks d'activation et désactivation pour gérer les règles de réécriture
+register_activation_hook(__FILE__, 'photo_library_plugin_activate');
+register_deactivation_hook(__FILE__, 'photo_library_plugin_deactivate');
+
+function photo_library_plugin_activate() {
+    // Ajouter les règles de réécriture
+    PL_React_App::add_rewrite_rules();
+    // Vider le cache des règles
+    flush_rewrite_rules();
+}
+
+function photo_library_plugin_deactivate() {
+    // Vider le cache des règles
+    flush_rewrite_rules();
+}
 
 // Handle CORS headers for all REST API requests - multiple hooks for maximum coverage.
 add_filter('rest_pre_serve_request', array( 'PhotoLibrary', 'rest_send_cors_headers' ));
