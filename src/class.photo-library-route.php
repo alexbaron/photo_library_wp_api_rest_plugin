@@ -30,6 +30,8 @@
  * - GET /wp-json/photo-library/v1/pictures/{id}           - Get picture by ID
  * - GET /wp-json/photo-library/v1/pictures/random/{id}    - Get random picture
  * - POST /wp-json/photo-library/v1/pictures/by_keywords   - Search by keywords
+ * - POST /wp-json/photo-library/v1/pictures/by_color      - Search by color (Pinecone)
+ * - POST /wp-json/photo-library/v1/pictures/by_dominant_color - Search by dominant color (UI optimized)
  * - GET /wp-json/photo-library/v1/pictures/keywords       - Get all keywords (flat)
  * - GET /wp-json/photo-library/v1/pictures/hierarchy      - Get keyword hierarchy
  *
@@ -287,6 +289,19 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 array(
                     'methods'             => WP_REST_Server::CREATABLE,
                     'callback'            => array( $this, 'get_pictures_by_color' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
+
+        // Search pictures by dominant color (optimized for UI display)
+        register_rest_route(
+            $this->namespace,
+            '/' . $this->resourceName . '/by_dominant_color',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::CREATABLE,
+                    'callback'            => array( $this, 'get_pictures_by_dominant_color' ),
                     'permission_callback' => '__return_true',
                 ),
             )
@@ -777,6 +792,92 @@ class PhotoLibrary_Route extends WP_REST_Controller
             return new WP_REST_Response(
                 array(
                     'error' => 'Color search failed',
+                    'message' => $e->getMessage()
+                ),
+                500
+            );
+        }
+    }
+
+    /**
+     * Search pictures by dominant color with UI-optimized response
+     * 
+     * Returns photos similar to the clicked color, formatted for display:
+     * - First photo as background image
+     * - Remaining photos as thumbnails
+     *
+     * @param WP_REST_Request $request REST request with JSON body containing:
+     *   - rgb: Array [R, G, B] values (0-255)
+     *   - limit: (optional) Number of results (default: 10)
+     * 
+     * @return WP_REST_Response Response with:
+     *   - background_photo: First matching photo (full data)
+     *   - thumbnail_photos: Array of remaining photos
+     *   - total_count: Total number of results
+     *   - query_color: The RGB values searched
+     */
+    public function get_pictures_by_dominant_color($request): WP_REST_Response
+    {
+        try {
+            $params = $request->get_json_params();
+            
+            if (!isset($params['rgb']) || !is_array($params['rgb']) || count($params['rgb']) !== 3) {
+                return new WP_REST_Response(
+                    array(
+                        'error' => 'Invalid RGB values. Expected array of 3 numbers [R, G, B] in 0-255 range.',
+                        'example' => array('rgb' => [120, 150, 200], 'limit' => 10)
+                    ),
+                    400
+                );
+            }
+
+            $rgb_values = array_map('intval', $params['rgb']);
+            $limit = isset($params['limit']) ? intval($params['limit']) : 10;
+            
+            // Ensure we get at least 1 result
+            if ($limit < 1) {
+                $limit = 1;
+            }
+
+            // Initialize Pinecone color search
+            $color_search = new PL_Color_Search_Index();
+            
+            // Search for similar colors
+            $results = $color_search->search_by_color($rgb_values, $limit);
+
+            // Get full picture data from WordPress for each result
+            $pictures = array();
+            foreach ($results as $result) {
+                $photo_id = intval($result['photo_id']);
+                $picture_data = PL_REST_DB::getPicturesById($photo_id);
+                
+                if ($picture_data && isset($picture_data['picture'])) {
+                    $picture = $picture_data['picture'];
+                    $picture['color_score'] = $result['score'];
+                    $picture['color_match'] = $result['rgb_stored'];
+                    $pictures[] = $picture;
+                }
+            }
+
+            // Separate first photo (background) from thumbnails
+            $background_photo = !empty($pictures) ? $pictures[0] : null;
+            $thumbnail_photos = array_slice($pictures, 1);
+
+            return new WP_REST_Response(
+                array(
+                    'query_color' => $rgb_values,
+                    'total_count' => count($pictures),
+                    'background_photo' => $background_photo,
+                    'thumbnail_photos' => $thumbnail_photos
+                ),
+                200
+            );
+
+        } catch (Exception $e) {
+            error_log('PhotoLibrary dominant color search error: ' . $e->getMessage());
+            return new WP_REST_Response(
+                array(
+                    'error' => 'Dominant color search failed',
                     'message' => $e->getMessage()
                 ),
                 500
