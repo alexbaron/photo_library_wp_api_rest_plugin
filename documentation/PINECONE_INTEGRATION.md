@@ -90,7 +90,7 @@ Le script propose 3 options :
 ```bash
 cd phototheque-wp/
 export PINECONE_API_KEY="your-key"
-ddev exec "wp eval-file wp-content/plugins/photo_library_wp_api_rest_plugin/sync-colors-to-pinecone.php"
+ddev exec "wp eval-file wp-content/plugins/photo_library_wp_api_rest_plugin/src/pinecone/sync-colors-to-pinecone.php"
 ```
 
 Le script :

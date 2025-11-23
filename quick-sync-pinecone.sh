@@ -10,7 +10,7 @@ echo "=== PhotoLibrary Pinecone Sync ==="
 echo ""
 
 # Check if we're in the right directory
-if [ ! -f "sync-colors-to-pinecone.php" ]; then
+if [ ! -f "src/pinecone/sync-colors-to-pinecone.php" ]; then
     echo "Error: Please run this script from the plugin directory"
     echo "cd wp-content/plugins/photo_library_wp_api_rest_plugin/"
     exit 1
@@ -39,7 +39,7 @@ if command -v ddev &> /dev/null; then
     read -p "Choose option (1-3): " OPTION
     
     export SYNC_OPTION=$OPTION
-    ddev exec "wp eval-file wp-content/plugins/photo_library_wp_api_rest_plugin/sync-colors-to-pinecone.php"
+    ddev exec "wp eval-file wp-content/plugins/photo_library_wp_api_rest_plugin/src/pinecone/sync-colors-to-pinecone.php"
 else
     echo "Using local WP-CLI..."
     echo ""
@@ -47,7 +47,7 @@ else
     read -p "Choose option (1-3): " OPTION
     
     export SYNC_OPTION=$OPTION
-    wp eval-file sync-colors-to-pinecone.php
+    wp eval-file src/pinecone/sync-colors-to-pinecone.php
 fi
 
 echo ""

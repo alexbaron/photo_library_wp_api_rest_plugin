@@ -8,23 +8,23 @@
  * Usage: 
  *   cd phototheque-wp/
  *   export PINECONE_API_KEY="your-api-key"
- *   ddev exec "wp eval-file wp-content/plugins/photo_library_wp_api_rest_plugin/sync-colors-to-pinecone.php"
+ *   ddev exec "wp eval-file wp-content/plugins/photo_library_wp_api_rest_plugin/src/pinecone/sync-colors-to-pinecone.php"
  * 
  * @package PhotoLibrary
  */
 
 if (!defined('ABSPATH')) {
-    define('ABSPATH', dirname(__FILE__) . '/../../../../');
+    define('ABSPATH', dirname(__FILE__) . '/../../../../../');
 }
 
 // Load WordPress
 require_once ABSPATH . 'wp-load.php';
 
 // Load required classes
-require_once __DIR__ . '/src/class.photo-library-pinecone.php';
-require_once __DIR__ . '/src/class.photo-library-db.php';
-require_once __DIR__ . '/src/class.photo-library-schema.php';
-require_once __DIR__ . '/src/color/class.photo-library-color.php';
+require_once __DIR__ . '/../class.photo-library-pinecone.php';
+require_once __DIR__ . '/../class.photo-library-db.php';
+require_once __DIR__ . '/../class.photo-library-schema.php';
+require_once __DIR__ . '/../color/class.photo-library-color.php';
 
 /**
  * Sync all photos with color palettes to Pinecone
@@ -251,6 +251,6 @@ if (defined('WP_CLI') && WP_CLI) {
     
 } else {
     echo "This script must be run via WP-CLI\n";
-    echo "Usage: ddev exec \"wp eval-file sync-colors-to-pinecone.php\"\n";
+    echo "Usage: ddev exec \"wp eval-file wp-content/plugins/photo_library_wp_api_rest_plugin/src/pinecone/sync-colors-to-pinecone.php\"\n";
     exit(1);
 }
