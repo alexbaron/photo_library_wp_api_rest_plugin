@@ -11,12 +11,39 @@ charset = utf-8
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
+
+# PHP files follow WordPress coding standards (tabs for indentation)
+[*.php]
+indent_style = tab
+indent_size = 2
+tab_width = 2
+
+# JavaScript files
+[*.js]
 indent_style = space
 indent_size = 2
 
-[{.jshintrc,*.json,*.yml}]
+# CSS files
+[*.css]
 indent_style = space
 indent_size = 2
 
+# JSON, YAML, and configuration files
+[{.jshintrc,*.json,*.yml,*.yaml}]
+indent_style = space
+indent_size = 2
+
+# Markdown files
+[*.md]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
+
+# XML files (phpcs.xml, etc.)
+[*.xml]
+indent_style = space
+indent_size = 4
+
+# Text files with Windows line endings
 [{*.txt,wp-config-sample.php}]
 end_of_line = crlf

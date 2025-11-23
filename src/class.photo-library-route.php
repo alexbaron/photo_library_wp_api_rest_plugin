@@ -278,6 +278,19 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 ),
             )
         );
+
+        // Search pictures by color
+        register_rest_route(
+            $this->namespace,
+            '/' . $this->resourceName . '/by_color',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::CREATABLE,
+                    'callback'            => array( $this, 'get_pictures_by_color' ),
+                    'permission_callback' => '__return_true',
+                ),
+            )
+        );
     }
 
     /**
@@ -696,5 +709,78 @@ class PhotoLibrary_Route extends WP_REST_Controller
         );
 
         return new WP_REST_Response($data, $success ? 200 : 500);
+    }
+
+    /**
+     * Get Pictures by Color
+     *
+     * Search for pictures with similar RGB colors using Pinecone vector database.
+     * Accepts an RGB color array and returns pictures sorted by color similarity.
+     *
+     * @since 0.2.0
+     *
+     * @param WP_REST_Request $request Request object containing RGB values and optional filters
+     * @return WP_REST_Response List of pictures with similar colors
+     *
+     * @example POST /wp-json/photo-library/v1/pictures/by_color
+     * Body: {"rgb": [120, 150, 200], "top_k": 10}
+     */
+    public function get_pictures_by_color($request): WP_REST_Response
+    {
+        try {
+            $params = $request->get_json_params();
+            
+            if (!isset($params['rgb']) || !is_array($params['rgb']) || count($params['rgb']) !== 3) {
+                return new WP_REST_Response(
+                    array(
+                        'error' => 'Invalid RGB values. Expected array of 3 numbers [R, G, B] in 0-255 range.',
+                        'example' => array('rgb' => [120, 150, 200], 'top_k' => 10)
+                    ),
+                    400
+                );
+            }
+
+            $rgb_values = array_map('intval', $params['rgb']);
+            $top_k = isset($params['top_k']) ? intval($params['top_k']) : 10;
+
+            // Initialize Pinecone color search
+            $color_search = new PL_Color_Search_Index();
+            
+            // Search for similar colors
+            $results = $color_search->search_by_color($rgb_values, $top_k);
+
+            // Get full picture data from WordPress for each result
+            $pictures = array();
+            foreach ($results as $result) {
+                $photo_id = intval($result['photo_id']);
+                $picture_data = PL_REST_DB::getPicturesById($photo_id);
+                
+                if ($picture_data && isset($picture_data['picture'])) {
+                    $picture = $picture_data['picture'];
+                    $picture['color_score'] = $result['score'];
+                    $picture['color_match'] = $result['rgb_stored'];
+                    $pictures[] = $picture;
+                }
+            }
+
+            return new WP_REST_Response(
+                array(
+                    'query_color' => $rgb_values,
+                    'results_count' => count($pictures),
+                    'pictures' => $pictures
+                ),
+                200
+            );
+
+        } catch (Exception $e) {
+            error_log('PhotoLibrary color search error: ' . $e->getMessage());
+            return new WP_REST_Response(
+                array(
+                    'error' => 'Color search failed',
+                    'message' => $e->getMessage()
+                ),
+                500
+            );
+        }
     }
 }

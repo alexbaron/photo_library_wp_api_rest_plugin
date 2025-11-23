@@ -34,6 +34,8 @@ require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-cache.php';
 require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-file-cache.php';
 require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-db.php';
 require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-data-handler.php';
+require_once plugin_dir_path(__FILE__) . 'src/color/class.photo-library-color.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-pinecone.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
@@ -50,14 +52,16 @@ add_action('init', array( 'PL_WordPress_Page', 'init' ));
 register_activation_hook(__FILE__, 'photo_library_plugin_activate');
 register_deactivation_hook(__FILE__, 'photo_library_plugin_deactivate');
 
-function photo_library_plugin_activate() {
+function photo_library_plugin_activate()
+{
     // Ajouter les règles de réécriture
     PL_React_App::add_rewrite_rules();
     // Vider le cache des règles
     flush_rewrite_rules();
 }
 
-function photo_library_plugin_deactivate() {
+function photo_library_plugin_deactivate()
+{
     // Vider le cache des règles
     flush_rewrite_rules();
 }
