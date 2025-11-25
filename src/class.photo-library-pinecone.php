@@ -15,9 +15,21 @@ class PL_Color_Search_Index
 
     public function __construct()
     {
-        $this->api_key = getenv('PINECONE_API_KEY');
+        // Charger les variables d'environnement
+        if (!class_exists('PL_Env_Manager')) {
+            require_once __DIR__ . '/class.photo-library-env-manager.php';
+        }
+
+        PL_Env_Manager::load();
+
+        // Récupérer la clé API avec debug
+        $this->api_key = PL_Env_Manager::get('PINECONE_API_KEY');
+
         if (!$this->api_key) {
-            throw new Exception('-- PINECONE_API_KEY environment variable not set --');
+            $debug_info = PL_Env_Manager::get_debug_info();
+            $error_msg = 'PINECONE_API_KEY not found. Debug info: ' . json_encode($debug_info);
+            error_log($error_msg);
+            throw new Exception($error_msg);
         }
 
         // Get index host from Pinecone

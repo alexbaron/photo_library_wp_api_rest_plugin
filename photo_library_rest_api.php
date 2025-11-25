@@ -27,6 +27,11 @@ if (! function_exists('add_action')) {
 
 define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
 
+
+// Charger le gestionnaire d'environnement dès le début
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-env-manager.php';
+PL_Env_Manager::load(plugin_dir_path(__FILE__) . '.env');
+
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-cache.php';
 // Chargement des classes nécessaires
