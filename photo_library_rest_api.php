@@ -27,49 +27,24 @@ if (! function_exists('add_action')) {
 
 define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
 
-
-// Charger le gestionnaire d'environnement dès le début
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-env-manager.php';
-PL_Env_Manager::load(plugin_dir_path(__FILE__) . '.env');
-
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-cache.php';
-// Chargement des classes nécessaires
-require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-cache.php';
-require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-file-cache.php';
-require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-db.php';
-require_once plugin_dir_path(__FILE__) . 'src/class.photo-library-data-handler.php';
-require_once plugin_dir_path(__FILE__) . 'src/color/class.photo-library-color.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-pinecone.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-react-app.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library-wordpress-page.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'class.photo-library-cache.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'class.photo-library-file-cache.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-color.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-rgb-distance.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'command' . DIRECTORY_SEPARATOR . 'class.photo-library-cli.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'command' . DIRECTORY_SEPARATOR . 'class.photo-library-cron-commands.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'handler' . DIRECTORY_SEPARATOR . 'class.photo-library-data-handler.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'logger' . DIRECTORY_SEPARATOR . 'class.photo-library-palette-logger.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'pinecone' . DIRECTORY_SEPARATOR . 'class.photo-library-pinecone.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'routing' . DIRECTORY_SEPARATOR .'class.photo-library-route.php';
 
 // Initialize configuration.
 
 add_action('init', array( 'PhotoLibrary', 'init' ));
-add_action('init', array( 'PL_React_App', 'init' ));
-add_action('init', array( 'PL_WordPress_Page', 'init' ));
-
-// Hooks d'activation et désactivation pour gérer les règles de réécriture
-register_activation_hook(__FILE__, 'photo_library_plugin_activate');
-register_deactivation_hook(__FILE__, 'photo_library_plugin_deactivate');
-
-function photo_library_plugin_activate()
-{
-    // Ajouter les règles de réécriture
-    PL_React_App::add_rewrite_rules();
-    // Vider le cache des règles
-    flush_rewrite_rules();
-}
-
-function photo_library_plugin_deactivate()
-{
-    // Vider le cache des règles
-    flush_rewrite_rules();
-}
 
 // Handle CORS headers for all REST API requests - multiple hooks for maximum coverage.
 add_filter('rest_pre_serve_request', array( 'PhotoLibrary', 'rest_send_cors_headers' ));
@@ -112,6 +87,5 @@ add_action('delete_attachment', array( 'PL_Cache_Manager', 'mark_content_updated
 add_action('set_object_terms', array( 'PL_Cache_Manager', 'mark_content_updated' ), 10, 4);
 
 register_activation_hook(__FILE__, array( 'PL_INSTALL', 'create_table' ));
-register_activation_hook(__FILE__, array( 'PL_React_App', 'flush_rewrite_rules' ));
 
 $installation = new PL_INSTALL();

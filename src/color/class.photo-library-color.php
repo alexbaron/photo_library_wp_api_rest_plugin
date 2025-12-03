@@ -74,11 +74,18 @@ class PL_COLOR_HANDLER
      */
     public function getSourceUrl(stdClass $picture): string
     {
+        // Generate the image URL from WordPress attachment ID
+        $img_url = wp_get_attachment_url($picture->id);
+
+        if (!$img_url) {
+            throw new \Exception("Unable to get attachment URL for image ID: {$picture->id}");
+        }
+
         return urldecode(
             str_replace(
                 'phototheque-wp.ddev.site',
                 'www.photographie.stephanewagner.com',
-                $picture->img_url
+                $img_url
             )
         );
     }

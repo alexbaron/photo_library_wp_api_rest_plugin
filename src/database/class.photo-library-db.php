@@ -22,6 +22,36 @@ class PL_REST_DB
         return $this->wpdb;
     }
 
+    /**
+     * Récupère les images pour la synchronisation des palettes
+     *
+     * @param int $limit Nombre d'images à récupérer
+     * @param int $offset Décalage pour la pagination
+     * @param bool $only_without_palette Si true, ne récupère que les images sans palette
+     * @return array Liste des images avec leurs métadonnées
+     */
+    public function getPicturesForPaletteSync($limit = 20, $offset = 0, $only_without_palette = false)
+    {
+        $where_clause = "WHERE p.post_type = 'attachment' AND p.post_mime_type LIKE 'image/%'";
+
+        if ($only_without_palette) {
+            $where_clause .= " AND (pc.meta_value IS NULL OR pc.meta_value = '')";
+        }
+
+        $query = "
+            SELECT p.ID as id, p.post_title as title, p.post_excerpt as description,
+                   pm.meta_value as metadata, pc.meta_value as palette
+            FROM {$this->wpdb->posts} p
+            LEFT JOIN {$this->wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_wp_attachment_metadata'
+            LEFT JOIN {$this->wpdb->postmeta} pc ON p.ID = pc.post_id AND pc.meta_key = 'pl_palette'
+            {$where_clause}
+            ORDER BY p.ID ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ";
+
+        return $this->wpdb->get_results($query);
+    }
+
     protected static function initPlSchema($wpdb): PhotoLibrarySchema
     {
         try {

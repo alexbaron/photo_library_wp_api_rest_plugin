@@ -1,0 +1,784 @@
+openapi: 3.0.3
+info:
+  title: PhotoLibrary REST API
+  description: |
+    API REST pour le plugin PhotoLibrary WordPress - Gestion et recherche d'images avec intégration Pinecone pour la recherche par couleur.
+
+    ## Fonctionnalités
+    - Récupération d'images avec métadonnées complètes
+    - Recherche par mots-clés/tags hiérarchiques
+    - Recherche par similarité de couleur (Pinecone)
+    - Intégration WP/LR Sync pour Lightroom
+    - Gestion du cache avancée
+
+    ## Authentification
+    Toutes les routes sont publiques et ne nécessitent pas d'authentification.
+  version: 1.0.0
+  contact:
+    name: Alex Baron
+    email: contact@alexbaron.fr
+  license:
+    name: GPL v2 or later
+    url: https://www.gnu.org/licenses/gpl-2.0.html
+
+servers:
+  - url: https://phototheque-wp.ddev.site/wp-json/photo-library/v1
+    description: Serveur de développement DDEV
+  - url: https://your-wordpress-site.com/wp-json/photo-library/v1
+    description: Serveur de production
+
+tags:
+  - name: diagnostic
+    description: Endpoints de diagnostic et configuration
+  - name: photos
+    description: Gestion et récupération des photos
+  - name: search
+    description: Recherche d'images
+  - name: metadata
+    description: Métadonnées et mots-clés
+  - name: cache
+    description: Gestion du cache
+
+paths:
+  /test:
+    get:
+      tags: [diagnostic]
+      summary: Test de santé de l'API
+      description: Vérifie que l'API fonctionne correctement
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API fonctionnelle
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                    example: "PhotoLibrary API is working"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /config:
+    get:
+      tags: [diagnostic]
+      summary: Configuration et debug
+      description: Informations de configuration du plugin
+      operationId: getConfig
+      responses:
+        '200':
+          description: Configuration du plugin
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plugin_version:
+                    type: string
+                    example: "1.0.0"
+                  wordpress_version:
+                    type: string
+                  wplr_sync_available:
+                    type: boolean
+                  pinecone_configured:
+                    type: boolean
+
+  /cache/stats:
+    get:
+      tags: [cache]
+      summary: Statistiques du cache
+      description: Informations sur l'utilisation du cache
+      operationId: getCacheStats
+      responses:
+        '200':
+          description: Statistiques du cache
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_photos:
+                    type: integer
+                    example: 1250
+                  cached_items:
+                    type: integer
+                    example: 800
+                  cache_hit_rate:
+                    type: number
+                    format: float
+                    example: 0.85
+                  last_updated:
+                    type: string
+                    format: date-time
+
+  /cache/flush:
+    delete:
+      tags: [cache]
+      summary: Vider le cache
+      description: Supprime tous les éléments du cache
+      operationId: flushCache
+      responses:
+        '200':
+          description: Cache vidé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cache flushed successfully"
+
+  /test-data/{id}:
+    get:
+      tags: [diagnostic]
+      summary: Test du gestionnaire de données
+      description: Test avec un ID spécifique
+      operationId: testDataHandler
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: ID de test
+      responses:
+        '200':
+          description: Test réussi
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /pictures/all:
+    get:
+      tags: [photos]
+      summary: Récupérer toutes les photos
+      description: Liste complète des photos avec métadonnées
+      operationId: getAllPictures
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: Nombre maximum de photos à retourner
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Décalage pour la pagination
+      responses:
+        '200':
+          description: Liste des photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Photo'
+
+  /picture/{id}:
+    get:
+      tags: [photos]
+      summary: Récupérer une photo par ID
+      description: Détails complets d'une photo spécifique
+      operationId: getPhotoById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: ID WordPress de la photo
+      responses:
+        '200':
+          description: Détails de la photo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+        '404':
+          description: Photo non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /pictures/random:
+    get:
+      tags: [photos]
+      summary: Photo aléatoire
+      description: Récupère une photo au hasard
+      operationId: getRandomPhoto
+      responses:
+        '200':
+          description: Photo aléatoire
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+
+  /pictures/random/{id}:
+    get:
+      tags: [photos]
+      summary: Photo aléatoire avec seed
+      description: Photo aléatoire avec un ID comme seed
+      operationId: getRandomPhotoWithSeed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Seed pour la génération aléatoire
+      responses:
+        '200':
+          description: Photo aléatoire
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+
+  /pictures/by_keywords:
+    post:
+      tags: [search]
+      summary: Recherche par mots-clés
+      description: Recherche d'images basée sur des mots-clés/tags
+      operationId: searchByKeywords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - keywords
+              properties:
+                keywords:
+                  type: array
+                  items:
+                    type: string
+                  example: ["landscape", "sunset", "mountain"]
+                  description: Liste des mots-clés à rechercher
+                match_type:
+                  type: string
+                  enum: [all, any]
+                  default: any
+                  description: Type de correspondance (tous les mots-clés ou au moins un)
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 20
+                  description: Nombre maximum de résultats
+      responses:
+        '200':
+          description: Résultats de recherche
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query_keywords:
+                    type: array
+                    items:
+                      type: string
+                  results_count:
+                    type: integer
+                  pictures:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Photo'
+        '400':
+          description: Requête invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /pictures/by_color:
+    post:
+      tags: [search]
+      summary: Recherche par similarité de couleur
+      description: Recherche d'images par couleur RGB utilisant Pinecone
+      operationId: searchByColor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rgb
+              properties:
+                rgb:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 0
+                    maximum: 255
+                  minItems: 3
+                  maxItems: 3
+                  example: [120, 150, 200]
+                  description: Couleur RGB [rouge, vert, bleu]
+                top_k:
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+                  default: 10
+                  description: Nombre de résultats similaires
+                force_local:
+                  type: boolean
+                  default: false
+                  description: Forcer la recherche locale (sans Pinecone)
+                filter:
+                  type: object
+                  description: Filtres additionnels (métadonnées)
+                  properties:
+                    category:
+                      type: string
+                    date_range:
+                      type: object
+                      properties:
+                        start:
+                          type: string
+                          format: date
+                        end:
+                          type: string
+                          format: date
+      responses:
+        '200':
+          description: Résultats de recherche par couleur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query_color:
+                    type: array
+                    items:
+                      type: integer
+                    example: [120, 150, 200]
+                  search_method:
+                    type: string
+                    enum: [pinecone, local, hybrid]
+                    example: "pinecone"
+                  results_count:
+                    type: integer
+                    example: 8
+                  pictures:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Photo'
+                        - type: object
+                          properties:
+                            color_score:
+                              type: number
+                              format: float
+                              minimum: 0
+                              maximum: 1
+                              example: 0.95
+                              description: Score de similarité de couleur
+                            color_match:
+                              type: array
+                              items:
+                                type: integer
+                              example: [118, 152, 198]
+                              description: Couleur dominante de l'image
+        '400':
+          description: Couleur RGB invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service Pinecone indisponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /pictures/by_dominant_color:
+    post:
+      tags: [search]
+      summary: Recherche par couleur dominante
+      description: |
+        Recherche d'images par couleur dominante avec algorithmes de distance configurables.
+        Cette recherche fonctionne localement sur les palettes extraites, sans dépendance externe.
+      operationId: searchByDominantColor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rgb
+              properties:
+                rgb:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 0
+                    maximum: 255
+                  minItems: 3
+                  maxItems: 3
+                  example: [255, 0, 0]
+                  description: Couleur RGB à rechercher [rouge, vert, bleu]
+                tolerance:
+                  type: integer
+                  minimum: 0
+                  maximum: 255
+                  default: 30
+                  example: 40
+                  description: Tolérance de couleur (0 = exact, 255 = très permissif)
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 20
+                  example: 5
+                  description: Nombre maximum de résultats à retourner
+                method:
+                  type: string
+                  enum: [euclidean, manhattan, weighted]
+                  default: euclidean
+                  example: "euclidean"
+                  description: |
+                    Algorithme de calcul de distance:
+                    - euclidean: Distance euclidienne standard (L2)
+                    - manhattan: Distance de Manhattan (L1) 
+                    - weighted: Distance pondérée selon perception humaine
+      responses:
+        '200':
+          description: Résultats de recherche par couleur dominante
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query_color:
+                    type: array
+                    items:
+                      type: integer
+                    example: [255, 0, 0]
+                    description: Couleur recherchée
+                  query_color_hex:
+                    type: string
+                    pattern: '^#[0-9a-fA-F]{6}$'
+                    example: "#ff0000"
+                    description: Couleur recherchée au format hexadécimal
+                  method:
+                    type: string
+                    enum: [euclidean, manhattan, weighted]
+                    example: "euclidean"
+                    description: Méthode de calcul utilisée
+                  tolerance:
+                    type: integer
+                    example: 40
+                    description: Tolérance appliquée
+                  results_count:
+                    type: integer
+                    example: 3
+                    description: Nombre de résultats trouvés
+                  total_photos_scanned:
+                    type: integer
+                    example: 546
+                    description: Nombre total de photos analysées
+                  pictures:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 92717
+                          description: ID WordPress de l'image
+                        title:
+                          type: string
+                          example: "Sunset landscape"
+                          description: Titre de l'image
+                        url:
+                          type: string
+                          format: uri
+                          example: "https://example.com/image.jpg"
+                          description: URL de l'image
+                        distance:
+                          type: number
+                          format: float
+                          example: 35.28
+                          description: Distance calculée par rapport à la couleur recherchée
+                        similarity_score:
+                          type: number
+                          format: float
+                          minimum: 0
+                          maximum: 1
+                          example: 0.9201
+                          description: Score de similarité (1 = identique, 0 = très différent)
+                        dominant_color:
+                          type: array
+                          items:
+                            type: integer
+                          minItems: 3
+                          maxItems: 3
+                          example: [125, 158, 166]
+                          description: Couleur dominante réelle de l'image [RGB]
+                        dominant_color_hex:
+                          type: string
+                          pattern: '^#[0-9a-fA-F]{6}$'
+                          example: "#7d9ea6"
+                          description: Couleur dominante au format hexadécimal
+                        search_method:
+                          type: string
+                          example: "euclidean"
+                          description: Méthode de recherche utilisée
+                        width:
+                          type: integer
+                          example: 1224
+                          description: Largeur de l'image en pixels
+                        height:
+                          type: integer
+                          example: 816
+                          description: Hauteur de l'image en pixels
+        '400':
+          description: Paramètres invalides
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      message:
+                        example: "RGB color must be an array of 3 integers"
+
+  /pictures/keywords:
+    get:
+      tags: [metadata]
+      summary: Liste des mots-clés
+      description: Récupère tous les mots-clés disponibles (structure plate)
+      operationId: getKeywords
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [flat, grouped]
+            default: flat
+          description: Format de sortie des mots-clés
+      responses:
+        '200':
+          description: Liste des mots-clés
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_keywords:
+                    type: integer
+                    example: 245
+                  keywords:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "landscape"
+                        count:
+                          type: integer
+                          example: 42
+                          description: Nombre d'images avec ce mot-clé
+                        slug:
+                          type: string
+                          example: "landscape"
+
+  /pictures/hierarchy:
+    get:
+      tags: [metadata]
+      summary: Hiérarchie des mots-clés
+      description: Structure hiérarchique des mots-clés (intégration WP/LR Sync)
+      operationId: getKeywordHierarchy
+      responses:
+        '200':
+          description: Hiérarchie des mots-clés
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  has_hierarchy:
+                    type: boolean
+                    example: true
+                    description: Indique si une hiérarchie est disponible
+                  wplr_sync_active:
+                    type: boolean
+                    example: true
+                  hierarchy:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/KeywordNode'
+
+components:
+  schemas:
+    Photo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1234
+          description: ID WordPress de l'attachment
+        title:
+          type: string
+          example: "Sunset over mountains"
+        alt:
+          type: string
+          example: "Beautiful sunset over snow-capped mountains"
+        caption:
+          type: string
+          example: "Taken during winter hike"
+        description:
+          type: string
+          example: "Landscape photo captured in the Alps"
+        src:
+          type: object
+          properties:
+            thumbnail:
+              type: string
+              format: uri
+              example: "https://example.com/wp-content/uploads/photo-150x150.jpg"
+            medium:
+              type: string
+              format: uri
+            large:
+              type: string
+              format: uri
+            full:
+              type: string
+              format: uri
+        keywords:
+          type: array
+          items:
+            type: string
+          example: ["landscape", "mountain", "sunset", "winter"]
+        metadata:
+          type: object
+          properties:
+            width:
+              type: integer
+              example: 4000
+            height:
+              type: integer
+              example: 3000
+            file_size:
+              type: integer
+              example: 2456789
+            mime_type:
+              type: string
+              example: "image/jpeg"
+            date_taken:
+              type: string
+              format: date-time
+            camera:
+              type: object
+              properties:
+                make:
+                  type: string
+                  example: "Canon"
+                model:
+                  type: string
+                  example: "EOS R5"
+                lens:
+                  type: string
+                  example: "RF 24-105mm f/4L"
+            exif:
+              type: object
+              properties:
+                aperture:
+                  type: string
+                  example: "f/8"
+                shutter_speed:
+                  type: string
+                  example: "1/125"
+                iso:
+                  type: integer
+                  example: 200
+                focal_length:
+                  type: string
+                  example: "35mm"
+        color_palette:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+            minItems: 3
+            maxItems: 3
+          example: [[120, 150, 200], [80, 100, 140], [200, 180, 160]]
+          description: Palette de couleurs dominantes [RGB]
+        upload_date:
+          type: string
+          format: date-time
+        file_url:
+          type: string
+          format: uri
+
+    KeywordNode:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Nature"
+        slug:
+          type: string
+          example: "nature"
+        count:
+          type: integer
+          example: 156
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeywordNode'
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "invalid_parameter"
+        message:
+          type: string
+          example: "RGB values must be between 0 and 255"
+        data:
+          type: object
+          properties:
+            status:
+              type: integer
+              example: 400
+        _links:
+          type: object
+          properties:
+            help:
+              type: array
+              items:
+                type: object
+                properties:
+                  href:
+                    type: string
+                    format: uri

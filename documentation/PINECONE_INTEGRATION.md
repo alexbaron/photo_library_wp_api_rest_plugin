@@ -35,6 +35,13 @@ Classe `PL_Color_Search_Index` pour interagir avec Pinecone :
 - `search_by_color()` - Rechercher par couleur
 - `get_index_stats()` - Statistiques
 
+### 2. Documentation API Swagger/OpenAPI
+
+**Interface interactive** : `/wp-json/photo-library/v1/docs/ui`
+**Spécification OpenAPI** : `/wp-json/photo-library/v1/docs`
+
+La documentation complète est disponible via Swagger UI avec tous les endpoints, paramètres, et exemples de réponses.
+
 ### 2. Nouveau endpoint REST API
 
 **POST** `/wp-json/photo-library/v1/pictures/by_color`
@@ -119,7 +126,7 @@ async searchByColor(rgb: number[], topK: number = 10): Promise<Picture[]> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rgb, top_k: topK })
   });
-  
+
   const data = await response.json();
   return data.pictures.map(this.transformToPicture);
 }

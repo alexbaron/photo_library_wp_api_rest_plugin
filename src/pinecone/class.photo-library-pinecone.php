@@ -1,436 +1,804 @@
 <?php
 
 /**
- * Photo Library Pinecone Integration
+ * PhotoLibrary Color Search Index for Pinecone
  *
- * Cette classe gère l'intégration entre le plugin Photo Library et Pinecone
- * pour la recherche sémantique d'images basée sur les vecteurs.
+ * Classe pour gérer l'index de recherche de couleurs avec Pinecone.
+ * Permet de rechercher des images par similarité de couleur RGB.
+ *
+ * @package PhotoLibrary
+ * @version 1.0.0
  */
-class PhotoLibraryPinecone
+
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly
+}
+
+class PL_Color_Search_Index
 {
     /**
-     * @var PineconeClient
+     * @var string Nom de l'index Pinecone
      */
-    private ?PineconeClient $client = null;
+    private const INDEX_NAME = 'phototheque-color-search';
 
     /**
-     * @var string Default namespace for photo embeddings
+     * @var string Namespace par défaut
      */
-    private const DEFAULT_NAMESPACE = 'photo_library';
+    private const NAMESPACE = 'photos';
+
+    /**
+     * @var int Dimensions du vecteur (RGB = 3 dimensions)
+     */
+    private const DIMENSIONS = 3;
+
+    /**
+     * @var string Clé API Pinecone
+     */
+    private string $api_key;
+
+    /**
+     * @var string URL de base de l'API Pinecone
+     */
+    private string $base_url;
 
     /**
      * Constructor
      */
     public function __construct()
     {
-        $this->initializeClient();
-    }
+        $this->api_key = $this->get_api_key();
+        $this->base_url = 'https://phototheque-color-search-123abc.svc.us-east-1.pinecone.io';
 
-    /**
-     * Initialize Pinecone client
-     *
-     * @return void
-     */
-    private function initializeClient(): void
-    {
-        // Charger la classe PineconeClient si pas encore chargée
-        if (!class_exists('PineconeClient')) {
-            require_once plugin_dir_path(__FILE__) . 'class.pinecone-client.php';
-        }
-
-        $this->client = PineconeClient::fromWordPressOptions();
-
-        if ($this->client === null) {
-            add_action('admin_notices', [$this, 'showConfigurationNotice']);
+        if (empty($this->api_key)) {
+            throw new Exception('PINECONE_API_KEY environment variable is required');
         }
     }
 
     /**
-     * Show admin notice when Pinecone is not configured
-     *
-     * @return void
+     * Récupère la clé API depuis les variables d'environnement
      */
-    public function showConfigurationNotice(): void
+    private function get_api_key(): string
     {
-        echo '<div class="notice notice-warning">';
-        echo '<p><strong>Photo Library:</strong> Pinecone configuration required for semantic search. ';
-        echo '<a href="' . admin_url('admin.php?page=photo-library-settings') . '">Configure now</a></p>';
-        echo '</div>';
+        // Essayer différentes sources de configuration
+        $api_key = getenv('PINECONE_API_KEY');
+
+        if (empty($api_key) && defined('PINECONE_API_KEY')) {
+            $api_key = PINECONE_API_KEY;
+        }
+
+        if (empty($api_key)) {
+            $api_key = get_option('photolibrary_pinecone_api_key', '');
+        }
+
+        return $api_key;
     }
 
     /**
-     * Test Pinecone connection
+     * Ajouter ou mettre à jour une photo dans l'index
      *
-     * @return bool
+     * @param int $photo_id ID de la photo WordPress
+     * @param array $rgb_color Couleur RGB [r, g, b]
+     * @param array $metadata Métadonnées additionnelles
+     * @return bool Success
      */
-    public function testConnection(): bool
+    public function upsert_photo_color(int $photo_id, array $rgb_color, array $metadata = []): bool
     {
-        if (!$this->client) {
-            return false;
-        }
-
-        return $this->client->testConnection();
-    }
-
-    /**
-     * Index a photo with its embeddings
-     *
-     * @param int $photo_id Photo ID
-     * @param array $embedding Vector embedding
-     * @param array $metadata Photo metadata
-     * @return bool Success status
-     */
-    public function indexPhoto(int $photo_id, array $embedding, array $metadata = []): bool
-    {
-        if (!$this->client) {
-            return false;
-        }
-
-        // Préparer le vecteur pour Pinecone
-        $vector = [
-            'id' => (string) $photo_id,
-            'values' => $embedding,
-            'metadata' => array_merge($metadata, [
-                'photo_id' => $photo_id,
-                'indexed_at' => current_time('mysql'),
-                'source' => 'photo_library'
-            ])
-        ];
-
-        $result = $this->client->upsert([$vector], self::DEFAULT_NAMESPACE);
-
-        if ($result !== false) {
-            // Sauvegarder le statut d'indexation dans WordPress
-            update_post_meta($photo_id, '_pinecone_indexed', true);
-            update_post_meta($photo_id, '_pinecone_indexed_at', current_time('mysql'));
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Index multiple photos in batch
-     *
-     * @param array $photos Array of photo data with embeddings
-     * @return bool Success status
-     */
-    public function batchIndexPhotos(array $photos): bool
-    {
-        if (!$this->client) {
-            return false;
-        }
-
-        $vectors = [];
-        foreach ($photos as $photo) {
-            $vectors[] = [
-                'id' => (string) $photo['id'],
-                'values' => $photo['embedding'],
-                'metadata' => array_merge($photo['metadata'] ?? [], [
-                    'photo_id' => $photo['id'],
-                    'indexed_at' => current_time('mysql'),
-                    'source' => 'photo_library'
-                ])
+        try {
+            // Normaliser les valeurs RGB (0-1)
+            $normalized_rgb = [
+                $rgb_color[0] / 255.0,
+                $rgb_color[1] / 255.0,
+                $rgb_color[2] / 255.0
             ];
+
+            $vector_data = [
+                'vectors' => [
+                    [
+                        'id' => (string) $photo_id,
+                        'values' => $normalized_rgb,
+                        'metadata' => array_merge([
+                            'photo_id' => $photo_id,
+                            'rgb' => $rgb_color,
+                            'uploaded_at' => current_time('mysql')
+                        ], $metadata)
+                    ]
+                ],
+                'namespace' => self::NAMESPACE
+            ];
+
+            $response = $this->make_request('POST', '/vectors/upsert', $vector_data);
+
+            return isset($response['upsertedCount']) && $response['upsertedCount'] > 0;
+
+        } catch (Exception $e) {
+            error_log('PL_Color_Search_Index::upsert_photo_color error: ' . $e->getMessage());
+            return false;
         }
+    }
 
-        $success = $this->client->batchUpsert($vectors, self::DEFAULT_NAMESPACE);
+    /**
+     * Batch insert de plusieurs photos
+     *
+     * @param array $photos Array de photos avec ['id' => int, 'rgb' => [r,g,b], 'metadata' => []]
+     * @return array Résultats avec ['success_count' => int, 'error_count' => int]
+     */
+    public function batch_upsert_photos(array $photos): array
+    {
+        $results = ['success_count' => 0, 'error_count' => 0];
 
-        if ($success) {
-            // Marquer toutes les photos comme indexées
-            foreach ($photos as $photo) {
-                update_post_meta($photo['id'], '_pinecone_indexed', true);
-                update_post_meta($photo['id'], '_pinecone_indexed_at', current_time('mysql'));
+        // Traiter par chunks de 100 (limite Pinecone)
+        $chunks = array_chunk($photos, 100);
+
+        foreach ($chunks as $chunk) {
+            try {
+                $vectors = [];
+
+                foreach ($chunk as $photo) {
+                    $normalized_rgb = [
+                        $photo['rgb'][0] / 255.0,
+                        $photo['rgb'][1] / 255.0,
+                        $photo['rgb'][2] / 255.0
+                    ];
+
+                    $vectors[] = [
+                        'id' => (string) $photo['id'],
+                        'values' => $normalized_rgb,
+                        'metadata' => array_merge([
+                            'photo_id' => $photo['id'],
+                            'rgb' => $photo['rgb'],
+                            'uploaded_at' => current_time('mysql')
+                        ], $photo['metadata'] ?? [])
+                    ];
+                }
+
+                $vector_data = [
+                    'vectors' => $vectors,
+                    'namespace' => self::NAMESPACE
+                ];
+
+                $response = $this->make_request('POST', '/vectors/upsert', $vector_data);
+
+                if (isset($response['upsertedCount'])) {
+                    $results['success_count'] += $response['upsertedCount'];
+                } else {
+                    $results['error_count'] += count($chunk);
+                }
+
+            } catch (Exception $e) {
+                error_log('PL_Color_Search_Index::batch_upsert_photos chunk error: ' . $e->getMessage());
+                $results['error_count'] += count($chunk);
             }
         }
 
-        return $success;
+        return $results;
     }
 
     /**
-     * Search for similar photos using vector similarity
+     * Rechercher des photos par couleur similaire
      *
-     * @param array $query_vector Query embedding vector
-     * @param int $limit Number of results to return
-     * @param array $filter Optional metadata filter
-     * @return array|false Search results or false on error
+     * @param array $rgb_color Couleur de recherche [r, g, b]
+     * @param int $top_k Nombre de résultats à retourner
+     * @param array $filter Filtres de métadonnées
+     * @return array Résultats avec photos et scores
      */
-    public function searchSimilarPhotos(array $query_vector, int $limit = 10, array $filter = []): array|false
+    public function search_by_color(array $rgb_color, int $top_k = 10, array $filter = []): array
     {
-        if (!$this->client) {
-            return false;
-        }
-
-        // Ajouter le filtre source par défaut
-        if (!isset($filter['source'])) {
-            $filter['source'] = 'photo_library';
-        }
-
-        $result = $this->client->query(
-            $query_vector,
-            $limit,
-            self::DEFAULT_NAMESPACE,
-            $filter,
-            false, // includeValues
-            true   // includeMetadata
-        );
-
-        if ($result === false) {
-            return false;
-        }
-
-        // Transformer les résultats pour le plugin
-        $photos = [];
-        foreach ($result['matches'] ?? [] as $match) {
-            $photos[] = [
-                'photo_id' => (int) $match['metadata']['photo_id'],
-                'similarity_score' => $match['score'],
-                'metadata' => $match['metadata']
+        try {
+            // Normaliser la couleur de recherche
+            $normalized_rgb = [
+                $rgb_color[0] / 255.0,
+                $rgb_color[1] / 255.0,
+                $rgb_color[2] / 255.0
             ];
-        }
 
-        return $photos;
-    }
-
-    /**
-     * Search photos using text query (requires integrated embeddings)
-     *
-     * @param string $text_query Search text
-     * @param int $limit Number of results to return
-     * @param array $filter Optional metadata filter
-     * @param bool $use_rerank Use reranking for better results
-     * @return array|false Search results or false on error
-     */
-    public function searchPhotosByText(
-        string $text_query,
-        int $limit = 10,
-        array $filter = [],
-        bool $use_rerank = true
-    ): array|false {
-        if (!$this->client) {
-            return false;
-        }
-
-        // Ajouter le filtre source par défaut
-        if (!isset($filter['source'])) {
-            $filter['source'] = 'photo_library';
-        }
-
-        if ($use_rerank) {
-            $result = $this->client->searchWithRerank(
-                $text_query,
-                $limit,
-                self::DEFAULT_NAMESPACE,
-                $filter,
-                'bge-reranker-v2-m3',
-                ['title', 'description', 'keywords']
-            );
-        } else {
-            $result = $this->client->searchText(
-                $text_query,
-                $limit,
-                self::DEFAULT_NAMESPACE,
-                $filter
-            );
-        }
-
-        if ($result === false) {
-            return false;
-        }
-
-        // Transformer les résultats
-        $photos = [];
-        $hits = $result['result']['hits'] ?? $result['matches'] ?? [];
-
-        foreach ($hits as $hit) {
-            $photos[] = [
-                'photo_id' => (int) ($hit['metadata']['photo_id'] ?? $hit['fields']['photo_id']),
-                'similarity_score' => $hit['score'] ?? $hit['_score'],
-                'metadata' => $hit['metadata'] ?? $hit['fields']
+            $query_data = [
+                'vector' => $normalized_rgb,
+                'topK' => $top_k,
+                'includeMetadata' => true,
+                'namespace' => self::NAMESPACE
             ];
-        }
 
-        return $photos;
+            // Ajouter les filtres si spécifiés
+            if (!empty($filter)) {
+                $query_data['filter'] = $filter;
+            }
+
+            $response = $this->make_request('POST', '/query', $query_data);
+
+            if (!isset($response['matches'])) {
+                return [];
+            }
+
+            $results = [];
+            foreach ($response['matches'] as $match) {
+                $photo_id = intval($match['id']);
+                $metadata = $match['metadata'] ?? [];
+
+                $results[] = [
+                    'photo_id' => $photo_id,
+                    'color_score' => $match['score'],
+                    'color_match' => $metadata['rgb'] ?? null,
+                    'metadata' => $metadata
+                ];
+            }
+
+            return $results;
+
+        } catch (Exception $e) {
+            error_log('PL_Color_Search_Index::search_by_color error: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**
-     * Remove photo from index
+     * Obtenir les statistiques de l'index
      *
-     * @param int $photo_id Photo ID to remove
-     * @return bool Success status
+     * @return array Statistiques de l'index
      */
-    public function removePhoto(int $photo_id): bool
+    public function get_index_stats(): array
     {
-        if (!$this->client) {
-            return false;
-        }
+        try {
+            $response = $this->make_request('GET', '/describe_index_stats');
 
-        $result = $this->client->delete([(string) $photo_id], self::DEFAULT_NAMESPACE);
-
-        if ($result !== false) {
-            // Supprimer les métadonnées d'indexation
-            delete_post_meta($photo_id, '_pinecone_indexed');
-            delete_post_meta($photo_id, '_pinecone_indexed_at');
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Get index statistics
-     *
-     * @return array|null
-     */
-    public function getIndexStats(): ?array
-    {
-        if (!$this->client) {
-            return null;
-        }
-
-        $stats = $this->client->getNamespaceStats(self::DEFAULT_NAMESPACE);
-
-        if ($stats) {
             return [
-                'total_vectors' => $stats['vectorCount'] ?? 0,
-                'namespace' => self::DEFAULT_NAMESPACE,
-                'last_updated' => current_time('mysql')
+                'total_vectors' => $response['totalVectorCount'] ?? 0,
+                'namespaces' => $response['namespaces'] ?? [],
+                'dimension' => $response['dimension'] ?? self::DIMENSIONS,
+                'index_fullness' => $response['indexFullness'] ?? 0
+            ];
+
+        } catch (Exception $e) {
+            error_log('PL_Color_Search_Index::get_index_stats error: ' . $e->getMessage());
+            return [
+                'total_vectors' => 0,
+                'namespaces' => [],
+                'dimension' => self::DIMENSIONS,
+                'index_fullness' => 0,
+                'error' => $e->getMessage()
             ];
         }
-
-        return null;
     }
 
     /**
-     * Check if photo is indexed in Pinecone
+     * Supprimer une photo de l'index
      *
-     * @param int $photo_id Photo ID
-     * @return bool
+     * @param int $photo_id ID de la photo
+     * @return bool Success
      */
-    public function isPhotoIndexed(int $photo_id): bool
+    public function delete_photo(int $photo_id): bool
     {
-        $indexed = get_post_meta($photo_id, '_pinecone_indexed', true);
-        return !empty($indexed);
+        try {
+            $delete_data = [
+                'ids' => [(string) $photo_id],
+                'namespace' => self::NAMESPACE
+            ];
+
+            $response = $this->make_request('DELETE', '/vectors/delete', $delete_data);
+
+            return true; // Pinecone delete renvoie toujours un succès même si l'ID n'existe pas
+
+        } catch (Exception $e) {
+            error_log('PL_Color_Search_Index::delete_photo error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
-     * Get photos that need indexing
+     * Vider complètement l'index (attention!)
      *
-     * @param int $limit Maximum number of photos to return
-     * @return array Photo IDs that need indexing
+     * @return bool Success
      */
-    public function getPhotosNeedingIndexing(int $limit = 50): array
+    public function clear_index(): bool
+    {
+        try {
+            $delete_data = [
+                'deleteAll' => true,
+                'namespace' => self::NAMESPACE
+            ];
+
+            $response = $this->make_request('DELETE', '/vectors/delete', $delete_data);
+
+            return true;
+
+        } catch (Exception $e) {
+            error_log('PL_Color_Search_Index::clear_index error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Effectuer une requête HTTP vers l'API Pinecone
+     *
+     * @param string $method HTTP method
+     * @param string $endpoint API endpoint
+     * @param array $data Request data
+     * @return array Response data
+     * @throws Exception Si la requête échoue
+     */
+    private function make_request(string $method, string $endpoint, array $data = []): array
+    {
+        $url = $this->base_url . $endpoint;
+
+        $headers = [
+            'Api-Key: ' . $this->api_key,
+            'Content-Type: application/json',
+            'User-Agent: PhotoLibrary-WordPress-Plugin/1.0'
+        ];
+
+        $args = [
+            'method' => $method,
+            'headers' => $headers,
+            'timeout' => 30,
+            'sslverify' => true
+        ];
+
+        if (!empty($data)) {
+            $args['body'] = json_encode($data);
+        }
+
+        $response = wp_remote_request($url, $args);
+
+        if (is_wp_error($response)) {
+            throw new Exception('HTTP request failed: ' . $response->get_error_message());
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+
+        if ($status_code < 200 || $status_code >= 300) {
+            $error_data = json_decode($body, true);
+            $error_message = $error_data['message'] ?? "HTTP $status_code error";
+            throw new Exception("Pinecone API error: $error_message");
+        }
+
+        $decoded = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception('Invalid JSON response from Pinecone API');
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Recherche locale par distance RGB dans WordPress
+     *
+     * Cette méthode recherche directement dans la base de données WordPress
+     * en calculant la distance euclidienne entre couleurs RGB. Elle peut servir
+     * de fallback ou d'alternative à Pinecone.
+     *
+     * @param array $rgb_color Couleur de recherche [r, g, b]
+     * @param int $top_k Nombre de résultats à retourner
+     * @param array $filter Filtres de métadonnées (non utilisés dans cette version)
+     * @return array Résultats avec photos et scores de distance
+     */
+    public function search_by_color_local(array $rgb_color, int $top_k = 10, array $filter = []): array
     {
         global $wpdb;
 
-        $query = $wpdb->prepare("
-			SELECT p.ID
-			FROM {$wpdb->posts} p
-			LEFT JOIN {$wpdb->postmeta} pm ON (p.ID = pm.post_id AND pm.meta_key = '_pinecone_indexed')
-			WHERE p.post_type = 'attachment'
-			AND p.post_mime_type LIKE 'image/%'
-			AND (pm.meta_value IS NULL OR pm.meta_value = '')
-			ORDER BY p.post_date DESC
-			LIMIT %d
-		", $limit);
+        try {
+            // Récupérer toutes les photos avec palette de couleurs
+            $query = "
+                SELECT p.ID, pm.meta_value as palette_data
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                WHERE p.post_type = 'attachment'
+                AND p.post_mime_type LIKE 'image/%'
+                AND pm.meta_key = '_pl_palette'
+                AND pm.meta_value != ''
+                AND pm.meta_value IS NOT NULL
+            ";
 
-        $results = $wpdb->get_col($query);
-        return array_map('intval', $results);
+            $photos_with_palettes = $wpdb->get_results($query);
+
+            if (empty($photos_with_palettes)) {
+                return [];
+            }
+
+            $distances = [];
+            $target_r = (float) $rgb_color[0];
+            $target_g = (float) $rgb_color[1];
+            $target_b = (float) $rgb_color[2];
+
+            foreach ($photos_with_palettes as $photo) {
+                $palette = unserialize($photo->palette_data);
+
+                if (!is_array($palette) || empty($palette)) {
+                    continue;
+                }
+
+                // Prendre la couleur dominante (première couleur de la palette)
+                $dominant_color = null;
+                if (isset($palette[0]) && is_array($palette[0]) && count($palette[0]) >= 3) {
+                    $dominant_color = $palette[0];
+                } elseif (isset($palette['dominant']) && is_array($palette['dominant']) && count($palette['dominant']) >= 3) {
+                    $dominant_color = $palette['dominant'];
+                } elseif (is_array($palette) && count($palette) >= 3 && is_numeric($palette[0])) {
+                    // Cas où la palette est directement [r, g, b]
+                    $dominant_color = $palette;
+                }
+
+                if ($dominant_color === null) {
+                    continue;
+                }
+
+                // Calculer la distance euclidienne dans l'espace RGB
+                $photo_r = (float) $dominant_color[0];
+                $photo_g = (float) $dominant_color[1];
+                $photo_b = (float) $dominant_color[2];
+
+                $distance = sqrt(
+                    pow($target_r - $photo_r, 2) +
+                    pow($target_g - $photo_g, 2) +
+                    pow($target_b - $photo_b, 2)
+                );
+
+                // Convertir la distance en score de similarité (0 = identique, 1 = très différent)
+                $max_distance = sqrt(3 * pow(255, 2)); // Distance max possible en RGB
+                $similarity_score = 1.0 - ($distance / $max_distance);
+
+                $distances[] = [
+                    'photo_id' => (int) $photo->ID,
+                    'distance' => $distance,
+                    'color_score' => $similarity_score,
+                    'color_match' => [(int) $photo_r, (int) $photo_g, (int) $photo_b],
+                    'metadata' => [
+                        'photo_id' => (int) $photo->ID,
+                        'rgb' => [(int) $photo_r, (int) $photo_g, (int) $photo_b],
+                        'search_method' => 'local_rgb_distance'
+                    ]
+                ];
+            }
+
+            // Trier par distance croissante (couleurs les plus proches en premier)
+            usort($distances, function ($a, $b) {
+                return $a['distance'] <=> $b['distance'];
+            });
+
+            // Retourner les top_k résultats
+            return array_slice($distances, 0, $top_k);
+
+        } catch (Exception $e) {
+            error_log('PL_Color_Search_Index::search_by_color_local error: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**
-     * Reindex all photos (use with caution)
+     * Recherche hybride : essaie Pinecone d'abord, puis fallback local
      *
-     * @return bool Success status
+     * @param array $rgb_color Couleur de recherche [r, g, b]
+     * @param int $top_k Nombre de résultats à retourner
+     * @param array $filter Filtres de métadonnées
+     * @param bool $force_local Forcer l'utilisation de la recherche locale
+     * @return array Résultats avec photos et scores
      */
-    public function reindexAllPhotos(): bool
+    public function search_by_color_hybrid(array $rgb_color, int $top_k = 10, array $filter = [], bool $force_local = false): array
     {
-        if (!$this->client) {
-            return false;
+        // Si on force la recherche locale ou si Pinecone n'est pas disponible
+        if ($force_local || empty($this->api_key)) {
+            return $this->search_by_color_local($rgb_color, $top_k, $filter);
         }
 
-        // Supprimer toutes les données de l'index
-        $result = $this->client->deleteAll(self::DEFAULT_NAMESPACE);
+        try {
+            // Essayer Pinecone d'abord
+            $pinecone_results = $this->search_by_color($rgb_color, $top_k, $filter);
 
-        if ($result !== false) {
-            // Réinitialiser les métadonnées d'indexation
-            global $wpdb;
-            $wpdb->delete($wpdb->postmeta, [
-                'meta_key' => '_pinecone_indexed'
+            if (!empty($pinecone_results)) {
+                return $pinecone_results;
+            }
+
+            // Fallback vers recherche locale si Pinecone ne retourne rien
+            return $this->search_by_color_local($rgb_color, $top_k, $filter);
+
+        } catch (Exception $e) {
+            error_log('PL_Color_Search_Index Pinecone fallback: ' . $e->getMessage());
+            // Fallback vers recherche locale en cas d'erreur Pinecone
+            return $this->search_by_color_local($rgb_color, $top_k, $filter);
+        }
+    }
+
+    /**
+     * Tester la connexion à Pinecone
+     *
+     * @return array Résultat du test avec status et message
+     */
+    public function test_connection(): array
+    {
+        try {
+            $stats = $this->get_index_stats();
+
+            if (isset($stats['error'])) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Connection failed: ' . $stats['error']
+                ];
+            }
+
+            return [
+                'status' => 'success',
+                'message' => 'Connection successful',
+                'stats' => $stats
+            ];
+
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Connection test failed: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Synchroniser toutes les photos avec palettes vers Pinecone
+     *
+     * @param bool $extract_missing Extraire les palettes manquantes avant sync
+     * @return array Résultat de la synchronisation
+     */
+    public function sync_all_photos_to_pinecone(bool $extract_missing = false): array
+    {
+        global $wpdb;
+
+        try {
+            $results = [
+                'extracted' => 0,
+                'synced' => 0,
+                'skipped' => 0,
+                'errors' => [],
+                'total_vectors' => 0
+            ];
+
+            // Extraire les palettes manquantes si demandé
+            if ($extract_missing) {
+                $extraction_result = $this->extract_missing_palettes();
+                $results['extracted'] = $extraction_result['extracted'];
+                $results['errors'] = array_merge($results['errors'], $extraction_result['errors']);
+            }
+
+            // Récupérer toutes les photos avec palette
+            $photos = $wpdb->get_results(
+                "SELECT
+                    p.ID as id,
+                    p.post_title as title,
+                    palette.meta_value as palette
+                FROM {$wpdb->prefix}posts AS p
+                LEFT JOIN {$wpdb->prefix}postmeta AS palette
+                    ON p.ID = palette.post_id
+                    AND palette.meta_key = '_pl_palette'
+                WHERE p.post_type = 'attachment'
+                    AND p.post_mime_type LIKE 'image%'
+                    AND palette.meta_value IS NOT NULL
+                ORDER BY p.ID"
+            );
+
+            if (empty($photos)) {
+                return array_merge($results, [
+                    'status' => 'error',
+                    'message' => 'No photos with color palette found. Run color extraction first.'
+                ]);
+            }
+
+            // Préparer les données pour Pinecone
+            $photos_to_sync = [];
+
+            foreach ($photos as $photo) {
+                $palette = maybe_unserialize($photo->palette);
+
+                if (!is_array($palette) || empty($palette)) {
+                    $results['skipped']++;
+                    $results['errors'][] = "Photo ID {$photo->id}: Invalid palette data";
+                    continue;
+                }
+
+                // Prendre la couleur dominante (première couleur de la palette)
+                $dominant_color = $palette[0];
+
+                if (!is_array($dominant_color) || count($dominant_color) !== 3) {
+                    $results['skipped']++;
+                    $results['errors'][] = "Photo ID {$photo->id}: Invalid RGB values";
+                    continue;
+                }
+
+                $photos_to_sync[] = [
+                    'id' => $photo->id,
+                    'rgb' => [
+                        (int) $dominant_color[0],
+                        (int) $dominant_color[1],
+                        (int) $dominant_color[2]
+                    ]
+                ];
+            }
+
+            if (empty($photos_to_sync)) {
+                return array_merge($results, [
+                    'status' => 'error',
+                    'message' => 'No valid photos to sync'
+                ]);
+            }
+
+            // Synchroniser vers Pinecone par batch
+            $success = $this->batch_upsert_photos($photos_to_sync);
+
+            if ($success) {
+                $results['synced'] = count($photos_to_sync);
+
+                // Obtenir les stats de l'index
+                $stats = $this->get_index_stats();
+                $results['total_vectors'] = $stats['totalVectorCount'] ?? 0;
+
+                return array_merge($results, [
+                    'status' => 'success',
+                    'message' => "Successfully synced {$results['synced']} photos to Pinecone"
+                ]);
+            } else {
+                return array_merge($results, [
+                    'status' => 'error',
+                    'message' => 'Failed to sync photos to Pinecone'
+                ]);
+            }
+
+        } catch (Exception $e) {
+            return array_merge($results ?? [], [
+                'status' => 'error',
+                'message' => 'Sync failed: ' . $e->getMessage()
             ]);
-            $wpdb->delete($wpdb->postmeta, [
-                'meta_key' => '_pinecone_indexed_at'
+        }
+    }
+
+    /**
+     * Extraire les palettes manquantes pour les photos
+     *
+     * @param int $limit Limite de photos à traiter
+     * @return array Résultat de l'extraction
+     */
+    public function extract_missing_palettes(int $limit = 100): array
+    {
+        global $wpdb;
+
+        try {
+            $results = [
+                'extracted' => 0,
+                'errors' => [],
+                'processed' => 0
+            ];
+
+            // Récupérer les photos sans palette
+            $photos = $wpdb->get_results(
+                "SELECT
+                    p.ID as id,
+                    p.post_title as title,
+                    p.guid as img_url,
+                    metadata.meta_value as metadata
+                FROM {$wpdb->prefix}posts AS p
+                LEFT JOIN {$wpdb->prefix}postmeta AS metadata
+                    ON p.ID = metadata.post_id
+                    AND metadata.meta_key = '_wp_attachment_metadata'
+                LEFT JOIN {$wpdb->prefix}postmeta AS palette
+                    ON p.ID = palette.post_id
+                    AND palette.meta_key = '_pl_palette'
+                WHERE p.post_type = 'attachment'
+                    AND p.post_mime_type LIKE 'image%'
+                    AND palette.meta_value IS NULL
+                ORDER BY p.ID
+                LIMIT " . intval($limit)
+            );
+
+            if (empty($photos)) {
+                return array_merge($results, [
+                    'status' => 'success',
+                    'message' => 'All photos already have color palettes'
+                ]);
+            }
+
+            // Charger les classes nécessaires
+            if (!class_exists('PL_COLOR_HANDLER')) {
+                require_once __DIR__ . '/../color/class.photo-library-color.php';
+            }
+            if (!class_exists('PL_REST_DB')) {
+                require_once __DIR__ . '/../class.photo-library-db.php';
+            }
+
+            $color_handler = new PL_COLOR_HANDLER();
+            $db = new PL_REST_DB($wpdb);
+
+            foreach ($photos as $photo) {
+                try {
+                    $results['processed']++;
+
+                    // Extraire la palette
+                    $palette = $color_handler->extractPalette($photo);
+
+                    if (!empty($palette)) {
+                        // Sauvegarder en base
+                        $db->savePaletteMeta($photo->id, $palette);
+                        $results['extracted']++;
+                    } else {
+                        $results['errors'][] = "Photo ID {$photo->id}: Failed to extract palette";
+                    }
+
+                } catch (Exception $e) {
+                    $results['errors'][] = "Photo ID {$photo->id}: " . $e->getMessage();
+                }
+            }
+
+            return array_merge($results, [
+                'status' => 'success',
+                'message' => "Extracted palettes for {$results['extracted']} out of {$results['processed']} photos"
             ]);
 
-            return true;
+        } catch (Exception $e) {
+            return array_merge($results ?? [], [
+                'status' => 'error',
+                'message' => 'Extraction failed: ' . $e->getMessage()
+            ]);
         }
-
-        return false;
     }
 
     /**
-     * Add WordPress hooks for automatic indexing
+     * Obtenir la liste des photos avec leurs palettes pour analyse
      *
-     * @return void
+     * @param int $limit Nombre de photos à récupérer
+     * @return array Liste des photos avec palettes
      */
-    public function addHooks(): void
+    public function get_photos_for_pinecone_analysis(int $limit = 10): array
     {
-        // Indexer automatiquement les nouvelles images
-        add_action('add_attachment', [$this, 'onAttachmentAdded']);
+        global $wpdb;
 
-        // Supprimer de l'index quand une image est supprimée
-        add_action('delete_attachment', [$this, 'onAttachmentDeleted']);
+        try {
+            $photos = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT
+                        p.ID as id,
+                        p.post_title as title,
+                        palette.meta_value as palette,
+                        p.post_date as created_at
+                    FROM {$wpdb->prefix}posts AS p
+                    LEFT JOIN {$wpdb->prefix}postmeta AS palette
+                        ON p.ID = palette.post_id
+                        AND palette.meta_key = '_pl_palette'
+                    WHERE p.post_type = 'attachment'
+                        AND p.post_mime_type LIKE 'image%%'
+                        AND palette.meta_value IS NOT NULL
+                    ORDER BY p.ID DESC
+                    LIMIT %d",
+                    $limit
+                )
+            );
 
-        // Réindexer quand les métadonnées changent
-        add_action('updated_postmeta', [$this, 'onMetadataUpdated'], 10, 4);
-    }
+            $result = [];
+            foreach ($photos as $photo) {
+                $palette = maybe_unserialize($photo->palette);
 
-    /**
-     * Hook: When attachment is added
-     *
-     * @param int $attachment_id
-     * @return void
-     */
-    public function onAttachmentAdded(int $attachment_id): void
-    {
-        // Vérifier si c'est une image
-        if (!wp_attachment_is_image($attachment_id)) {
-            return;
-        }
+                if (is_array($palette) && !empty($palette)) {
+                    $dominant_color = $palette[0];
 
-        // Marquer pour indexation différée (via cron job)
-        wp_schedule_single_event(time() + 60, 'photo_library_index_photo', [$attachment_id]);
-    }
+                    if (is_array($dominant_color) && count($dominant_color) === 3) {
+                        $result[] = [
+                            'id' => $photo->id,
+                            'title' => $photo->title,
+                            'rgb' => [
+                                (int) $dominant_color[0],
+                                (int) $dominant_color[1],
+                                (int) $dominant_color[2]
+                            ],
+                            'hex' => sprintf(
+                                '#%02x%02x%02x',
+                                (int) $dominant_color[0],
+                                (int) $dominant_color[1],
+                                (int) $dominant_color[2]
+                            ),
+                            'palette_size' => count($palette),
+                            'created_at' => $photo->created_at
+                        ];
+                    }
+                }
+            }
 
-    /**
-     * Hook: When attachment is deleted
-     *
-     * @param int $attachment_id
-     * @return void
-     */
-    public function onAttachmentDeleted(int $attachment_id): void
-    {
-        $this->removePhoto($attachment_id);
-    }
+            return $result;
 
-    /**
-     * Hook: When post metadata is updated
-     *
-     * @param int $meta_id
-     * @param int $post_id
-     * @param string $meta_key
-     * @param mixed $meta_value
-     * @return void
-     */
-    public function onMetadataUpdated(int $meta_id, int $post_id, string $meta_key, $meta_value): void
-    {
-        // Réindexer si les métadonnées importantes changent
-        $important_keys = ['_wp_attachment_metadata', '_wp_attached_file'];
-
-        if (in_array($meta_key, $important_keys) && wp_attachment_is_image($post_id)) {
-            // Marquer pour réindexation
-            delete_post_meta($post_id, '_pinecone_indexed');
-            wp_schedule_single_event(time() + 30, 'photo_library_index_photo', [$post_id]);
+        } catch (Exception $e) {
+            return [
+                'error' => 'Failed to get photos for analysis: ' . $e->getMessage()
+            ];
         }
     }
 }
