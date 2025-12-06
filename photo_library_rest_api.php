@@ -7,7 +7,7 @@
  *
  * Plugin Name:     Photo_library_rest_api
  * Plugin URI:      PLUGIN SITE HERE
- * Description:     PLUGIN DESCRIPTION HERE
+ * Description:     A WordPress plugin that provides a REST API for managing and searching a photo library with advanced features like color palette extraction, similarity search, and Pinecone vector database integration.
  * Author:          alex baron
  * Author URI:      YOUR SITE HERE
  * Text Domain:     photo_library_rest_api
