@@ -1336,11 +1336,11 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 foreach ($matching_photos as $match) {
                     // Récupérer les informations de base de la photo
                     $photo_info = get_post($match['photo_id']);
-                    
+
                     if ($photo_info && $photo_info->post_type === 'attachment') {
                         $attachment_url = wp_get_attachment_url($match['photo_id']);
                         $attachment_metadata = wp_get_attachment_metadata($match['photo_id']);
-                        
+
                         $pictures_data[] = [
                             'id' => $match['photo_id'],
                             'title' => $photo_info->post_title,
@@ -1411,7 +1411,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
         $r1 = (float) $color1[0];
         $g1 = (float) $color1[1];
         $b1 = (float) $color1[2];
-        
+
         $r2 = (float) $color2[0];
         $g2 = (float) $color2[1];
         $b2 = (float) $color2[2];

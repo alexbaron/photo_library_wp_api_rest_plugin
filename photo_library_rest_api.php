@@ -11,7 +11,7 @@
  * Author:          alex baron
  * Author URI:      YOUR SITE HERE
  * Text Domain:     photo_library_rest_api
- * Version:         0.2.0
+ * Version:         2.0.0
  */
 
 require_once __DIR__ . '/vendor/autoload.php';

@@ -463,7 +463,7 @@ paths:
                   description: |
                     Algorithme de calcul de distance:
                     - euclidean: Distance euclidienne standard (L2)
-                    - manhattan: Distance de Manhattan (L1) 
+                    - manhattan: Distance de Manhattan (L1)
                     - weighted: Distance pondérée selon perception humaine
       responses:
         '200':

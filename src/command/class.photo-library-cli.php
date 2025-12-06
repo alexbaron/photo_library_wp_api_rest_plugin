@@ -13,6 +13,50 @@ if (defined('WP_CLI') && WP_CLI) {
     class PhotoLibrary_CLI_Commands
     {
         /**
+         * Constructor - Initialise l'environnement CLI proprement
+         */
+        public function __construct() {
+            // Supprimer les notices de dépréciation non critiques pendant l'exécution des commandes
+            $this->setup_error_handling();
+        }
+
+        /**
+         * Configure la gestion d'erreur pour les commandes CLI
+         */
+        private function setup_error_handling() {
+            // Réduire le niveau de verbosité pour les deprecated notices non critiques
+            add_filter('deprecated_function_trigger_error', array($this, 'filter_cli_deprecated_notices'), 10, 4);
+            add_filter('deprecated_argument_trigger_error', array($this, 'filter_cli_deprecated_notices'), 10, 4);
+            add_filter('deprecated_hook_trigger_error', array($this, 'filter_cli_deprecated_notices'), 10, 4);
+        }
+
+        /**
+         * Filtre les notices de dépréciation pendant l'exécution CLI
+         *
+         * @param bool $trigger
+         * @param string $function_name
+         * @param string $replacement
+         * @param string $version
+         * @return bool
+         */
+        public function filter_cli_deprecated_notices($trigger, $function_name, $replacement, $version) {
+            // Liste des fonctions dépréciées à ignorer pendant les commandes CLI
+            $ignored_functions = array(
+                'visual_composer',
+                'vc_',
+                'wpb_',
+                // Ajoutez d'autres fonctions problématiques ici
+            );
+
+            foreach ($ignored_functions as $ignored) {
+                if (strpos($function_name, $ignored) === 0) {
+                    return false; // Supprimer l'affichage de cette notice
+                }
+            }
+
+            return $trigger;
+        }
+        /**
          * Supprime toutes les données de palettes existantes
          *
          * ## OPTIONS
