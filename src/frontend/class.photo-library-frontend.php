@@ -9,6 +9,7 @@ class PhotoLibrary_Frontend {
      * Hook WordPress pour initialiser le frontend
      */
     public static function init() {
+        add_action('template_redirect', array(__CLASS__, 'load_react_template'));
         add_action('wp_enqueue_scripts', array(__CLASS__, 'enqueue_react_app'));
         add_filter('the_content', array(__CLASS__, 'inject_react_app'), 10, 1);
     }
@@ -79,6 +80,90 @@ class PhotoLibrary_Frontend {
         }
 
         return $content;
+    }
+
+    /**
+     * Charge un template React sans thème WordPress
+     */
+    public static function load_react_template() {
+        global $post;
+
+        if (is_page() && isset($post->post_name) &&
+            (in_array($post->post_name, ['phototeque-react', 'phototeque-js']))) {
+
+            // Empêcher WordPress de charger le thème
+            remove_all_actions('wp_head');
+            remove_all_actions('wp_footer');
+
+            // Réajouter seulement les actions essentielles
+            add_action('wp_head', 'wp_enqueue_scripts', 1);
+            add_action('wp_head', 'wp_print_styles', 8);
+            add_action('wp_head', 'wp_print_head_scripts', 9);
+            add_action('wp_footer', 'wp_print_footer_scripts', 20);
+
+            // Charger notre template personnalisé
+            self::render_react_template();
+            exit;
+        }
+    }
+
+    /**
+     * Rendu du template React personnalisé
+     */
+    public static function render_react_template() {
+        $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
+        $dist_path = $plugin_url . 'public/dist/';
+
+        // Extraire les assets du fichier index.html
+        $index_file = plugin_dir_path(dirname(dirname(__FILE__))) . 'public/dist/index.html';
+        $css_files = array();
+        $js_files = array();
+
+        if (file_exists($index_file)) {
+            $content = file_get_contents($index_file);
+
+            // Extraire les fichiers CSS
+            if (preg_match_all('/href="([^"]*\.css)"/', $content, $css_matches)) {
+                foreach ($css_matches[1] as $css_file) {
+                    $css_files[] = str_replace('/phototheque/', $dist_path, $css_file);
+                }
+            }
+
+            // Extraire les fichiers JS
+            if (preg_match_all('/src="([^"]*\.js)"/', $content, $js_matches)) {
+                foreach ($js_matches[1] as $js_file) {
+                    $js_files[] = str_replace('/phototheque/', $dist_path, $js_file);
+                }
+            }
+        }
+
+        ?><!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+    <meta charset="<?php bloginfo('charset'); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo esc_html(get_the_title()); ?> - <?php bloginfo('name'); ?></title>
+
+    <?php foreach ($css_files as $css_file): ?>
+    <link rel="stylesheet" href="<?php echo esc_url($css_file); ?>">
+    <?php endforeach; ?>
+
+    <script>
+        window.wpApiSettings = {
+            root: '<?php echo esc_url_raw(rest_url()); ?>',
+            nonce: '<?php echo wp_create_nonce('wp_rest'); ?>',
+            photolibraryApiUrl: '<?php echo esc_url_raw(rest_url('photo-library/v1/')); ?>'
+        };
+    </script>
+</head>
+<body class="photolibrary-react-app">
+    <div id="root"></div>
+
+    <?php foreach ($js_files as $js_file): ?>
+    <script type="module" crossorigin src="<?php echo esc_url($js_file); ?>"></script>
+    <?php endforeach; ?>
+</body>
+</html><?php
     }
 
     /**
