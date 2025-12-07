@@ -42,9 +42,15 @@ require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'logger' . DIRECTORY_SEPARAT
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'pinecone' . DIRECTORY_SEPARATOR . 'class.photo-library-pinecone.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'routing' . DIRECTORY_SEPARATOR .'class.photo-library-route.php';
 
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'class.photo-library-frontend.php';
+
+
 // Initialize configuration.
 
 add_action('init', array( 'PhotoLibrary', 'init' ));
+
+add_action('init', array( 'PhotoLibrary_Frontend', 'init' ));
+
 
 // Handle CORS headers for all REST API requests - multiple hooks for maximum coverage.
 add_filter('rest_pre_serve_request', array( 'PhotoLibrary', 'rest_send_cors_headers' ));
