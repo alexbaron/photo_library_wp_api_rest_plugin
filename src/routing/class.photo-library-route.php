@@ -334,12 +334,6 @@ class PhotoLibrary_Route extends WP_REST_Controller
                             'type'        => 'object',
                             'default'     => array(),
                             'description' => 'Metadata filters'
-                        ),
-                        'force_local' => array(
-                            'required'    => false,
-                            'type'        => 'boolean',
-                            'default'     => false,
-                            'description' => 'Force local RGB distance search instead of Pinecone'
                         )
                     ),
                 ),
@@ -836,7 +830,6 @@ class PhotoLibrary_Route extends WP_REST_Controller
             $rgb_color = $request->get_param('rgb');
             $top_k = $request->get_param('top_k') ?: 10;
             $filter = $request->get_param('filter') ?: array();
-            $force_local = $request->get_param('force_local') ?: false;
 
             // Valider les paramètres RGB
             if (!is_array($rgb_color) || count($rgb_color) !== 3) {
@@ -852,8 +845,8 @@ class PhotoLibrary_Route extends WP_REST_Controller
             // Initialiser l'index Pinecone
             $color_index = new PL_Color_Search_Index();
 
-            // Effectuer la recherche hybride (Pinecone + fallback local)
-            $results = $color_index->search_by_color_hybrid($rgb_color, $top_k, $filter, $force_local);
+            // Effectuer la recherche directe dans Pinecone
+            $results = $color_index->search_by_color($rgb_color, $top_k, $filter);
 
             if (empty($results)) {
                 return new WP_REST_Response(
@@ -906,19 +899,11 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 $pictures_data[] = $picture;
             }
 
-            // Déterminer la méthode de recherche utilisée
-            $search_method = 'hybrid';
-            if ($force_local) {
-                $search_method = 'local_forced';
-            } elseif (!empty($results) && isset($results[0]['metadata']['search_method'])) {
-                $search_method = $results[0]['metadata']['search_method'] === 'local_rgb_distance' ? 'local_fallback' : 'pinecone';
-            }
-
             $response_data = array(
                 'query_color' => $rgb_color,
                 'results_count' => count($pictures_data),
                 'pictures' => $pictures_data,
-                'search_method' => $search_method,
+                'search_method' => 'pinecone',
                 'total_matches' => count($results),
                 'timestamp' => current_time('mysql')
             );
