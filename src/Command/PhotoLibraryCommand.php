@@ -470,16 +470,16 @@ class PhotoLibraryCommand extends Command
         foreach ($batches as $batchIndex => $batch) {
             $io->writeln("📦 Processing batch " . ($batchIndex + 1) . "/" . count($batches));
 
-            $uploadResult = $colorIndex->upsert_vectors($batch);
+            $uploadResult = $colorIndex->batch_upsert_photos($batch);
 
-            if ($uploadResult['status'] === 'success') {
-                $uploaded += count($batch);
-                $io->writeln("✅ Batch uploaded: " . count($batch) . " vectors");
+            if (isset($uploadResult['success_count']) && $uploadResult['success_count'] > 0) {
+                $uploaded += $uploadResult['success_count'];
+                $io->writeln("✅ Batch uploaded: " . $uploadResult['success_count'] . " vectors");
             } else {
                 $errors++;
-                $io->writeln("❌ Batch failed: " . $uploadResult['message']);
-            }
-
+                $errorMsg = isset($uploadResult['error_count']) ? "Errors: {$uploadResult['error_count']}" : "Unknown error";
+                $io->writeln("❌ Batch failed: " . $errorMsg);
+						}
             // Small pause between batches
             sleep(1);
         }
