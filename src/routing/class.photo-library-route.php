@@ -415,6 +415,17 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 'permission_callback' => '__return_true',
             )
         );
+
+        // Symfony Commands Documentation
+        register_rest_route(
+            $this->namespace,
+            '/commands/reference',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'get_commands_reference' ),
+                'permission_callback' => '__return_true',
+            )
+        );
     }
 
     /**
@@ -1869,5 +1880,72 @@ class PhotoLibrary_Route extends WP_REST_Controller
         $diagnostics['overall_status'] = $has_errors ? 'error' : ($pinecone_ready ? 'ready' : 'warning');
 
         return new WP_REST_Response($diagnostics, $status_code);
+    }
+
+    /**
+     * Get Symfony Commands Reference Documentation
+     *
+     * Returns the complete JSON reference for all PhotoLibrary Symfony commands
+     * including arguments, options, examples, and usage patterns.
+     *
+     * @since 1.0.0
+     *
+     * @return WP_REST_Response Commands reference JSON data
+     *
+     * @example GET /wp-json/photo-library/v1/commands/reference
+     */
+    public function get_commands_reference(): WP_REST_Response
+    {
+        try {
+            $reference_file = dirname(__FILE__, 2) . '/documentation/symfony-commands-reference.json';
+
+            if (!file_exists($reference_file)) {
+                return new WP_REST_Response(
+                    array(
+                        'error' => 'Commands reference file not found',
+                        'file_path' => $reference_file,
+                        'timestamp' => current_time('mysql')
+                    ),
+                    404
+                );
+            }
+
+            $json_content = file_get_contents($reference_file);
+            $reference_data = json_decode($json_content, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return new WP_REST_Response(
+                    array(
+                        'error' => 'Invalid JSON in reference file',
+                        'json_error' => json_last_error_msg(),
+                        'timestamp' => current_time('mysql')
+                    ),
+                    500
+                );
+            }
+
+            // Add metadata
+            $reference_data['meta'] = array(
+                'file_size' => filesize($reference_file),
+                'last_modified' => date('Y-m-d H:i:s', filemtime($reference_file)),
+                'file_path' => str_replace(dirname(__FILE__, 3), '', $reference_file),
+                'endpoint_accessed' => current_time('mysql'),
+                'total_commands' => count($reference_data['commands'] ?? [])
+            );
+
+            return new WP_REST_Response($reference_data, 200);
+
+        } catch (Exception $e) {
+            error_log('PhotoLibrary Commands Reference Error: ' . $e->getMessage());
+
+            return new WP_REST_Response(
+                array(
+                    'error' => 'Failed to load commands reference',
+                    'message' => $e->getMessage(),
+                    'timestamp' => current_time('mysql')
+                ),
+                500
+            );
+        }
     }
 }
