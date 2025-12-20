@@ -479,16 +479,7 @@ class PhotoLibraryCommand extends Command
                 $errors++;
                 $errorMsg = isset($uploadResult['error_count']) ? "Errors: {$uploadResult['error_count']}" : "Unknown error";
                 $io->writeln("❌ Batch failed: " . $errorMsg);
-            $uploadResult = $colorIndex->upsert_vectors($batch);
-
-            if ($uploadResult['status'] === 'success') {
-                $uploaded += count($batch);
-                $io->writeln("✅ Batch uploaded: " . count($batch) . " vectors");
-            } else {
-                $errors++;
-                $io->writeln("❌ Batch failed: " . $uploadResult['message']);
-            }
-
+						}
             // Small pause between batches
             sleep(1);
         }
