@@ -470,6 +470,7 @@ class PhotoLibraryCommand extends Command
         foreach ($batches as $batchIndex => $batch) {
             $io->writeln("📦 Processing batch " . ($batchIndex + 1) . "/" . count($batches));
 
+<<<<<<< HEAD
             $uploadResult = $colorIndex->batch_upsert_photos($batch);
 
             if (isset($uploadResult['success_count']) && $uploadResult['success_count'] > 0) {
