@@ -64,4 +64,4 @@ backup
 # Ignorer les fichiers temporaires
 .DS_Store
 Thumbs.db
-/wp/wp-content/plugins/photo_library_wp_api_rest_plugin/public
+public
