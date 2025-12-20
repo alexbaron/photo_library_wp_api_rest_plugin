@@ -470,7 +470,6 @@ class PhotoLibraryCommand extends Command
         foreach ($batches as $batchIndex => $batch) {
             $io->writeln("📦 Processing batch " . ($batchIndex + 1) . "/" . count($batches));
 
-<<<<<<< HEAD
             $uploadResult = $colorIndex->batch_upsert_photos($batch);
 
             if (isset($uploadResult['success_count']) && $uploadResult['success_count'] > 0) {
@@ -480,7 +479,6 @@ class PhotoLibraryCommand extends Command
                 $errors++;
                 $errorMsg = isset($uploadResult['error_count']) ? "Errors: {$uploadResult['error_count']}" : "Unknown error";
                 $io->writeln("❌ Batch failed: " . $errorMsg);
-=======
             $uploadResult = $colorIndex->upsert_vectors($batch);
 
             if ($uploadResult['status'] === 'success') {
@@ -489,7 +487,6 @@ class PhotoLibraryCommand extends Command
             } else {
                 $errors++;
                 $io->writeln("❌ Batch failed: " . $uploadResult['message']);
->>>>>>> 5589f35 (Main (#1))
             }
 
             // Small pause between batches
