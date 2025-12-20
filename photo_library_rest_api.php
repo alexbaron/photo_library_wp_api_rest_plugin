@@ -19,6 +19,9 @@ require_once __DIR__ . '/vendor/autoload.php';
 use Symfony\Component\Console\Application;
 use Alex\PhotoLibraryRestApi\Command\PhotoLibrarySfCommand;
 use Alex\PhotoLibraryRestApi\Command\ColorSearchTestCommand;
+use Alex\PhotoLibraryRestApi\Command\CronTasksCommand;
+use Alex\PhotoLibraryRestApi\Command\ParallelProcessingCommand;
+use Alex\PhotoLibraryRestApi\Command\PhotoLibraryCommand;
 use Alex\PhotoLibraryRestApi\Command\WPCLISymfonyBridge;
 
 // Exit if accessed directly.
@@ -47,6 +50,31 @@ if (defined('WP_CLI') && WP_CLI) {
     \WP_CLI::add_command($colorCommandName, new WPCLISymfonyBridge($colorSearchCommand), [
         'shortdesc' => $colorSearchCommand->getDescription(),
     ]);
+
+// Register cron tasks command
+$cronTasksCommand = new CronTasksCommand();
+$cronCommandName = str_replace(':', ' ', $cronTasksCommand->getName());
+
+\WP_CLI::add_command($cronCommandName, new WPCLISymfonyBridge($cronTasksCommand), [
+    'shortdesc' => $cronTasksCommand->getDescription(),
+]);
+
+// Register parallel processing command
+$parallelCommand = new ParallelProcessingCommand();
+$parallelCommandName = str_replace(':', ' ', $parallelCommand->getName());
+
+\WP_CLI::add_command($parallelCommandName, new WPCLISymfonyBridge($parallelCommand), [
+    'shortdesc' => $parallelCommand->getDescription(),
+]);
+
+// Register main PhotoLibrary command
+$photoLibraryCommand = new PhotoLibraryCommand();
+$photoLibraryCommandName = str_replace(':', ' ', $photoLibraryCommand->getName());
+
+\WP_CLI::add_command($photoLibraryCommandName, new WPCLISymfonyBridge($photoLibraryCommand), [
+    'shortdesc' => $photoLibraryCommand->getDescription(),
+]);
+
 }
 
 define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
@@ -56,8 +84,7 @@ require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATO
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'class.photo-library-file-cache.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-color.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-rgb-distance.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'Command' . DIRECTORY_SEPARATOR . 'class.photo-library-cli.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'Command' . DIRECTORY_SEPARATOR . 'class.photo-library-cron-commands.php';
+
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'handler' . DIRECTORY_SEPARATOR . 'class.photo-library-data-handler.php';
