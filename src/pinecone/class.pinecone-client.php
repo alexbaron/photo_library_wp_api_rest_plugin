@@ -6,6 +6,11 @@
  * Cette classe permet de se connecter et d'interagir avec le service Pinecone
  * via leur API REST depuis un plugin WordPress.
  */
+
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\GuzzleException;
+
 class PineconeClient
 {
     /**
@@ -19,14 +24,9 @@ class PineconeClient
     private string $host;
 
     /**
-     * @var string Base URL for API requests
+     * @var Client Client HTTP Guzzle
      */
-    private string $base_url;
-
-    /**
-     * @var array Default headers for requests
-     */
-    private array $default_headers;
+    private Client $http_client;
 
     /**
      * Constructor
@@ -38,13 +38,17 @@ class PineconeClient
     {
         $this->api_key = $api_key;
         $this->host = $host;
-        $this->base_url = "https://{$host}";
 
-        $this->default_headers = [
-            'Api-Key: ' . $this->api_key,
-            'Content-Type: application/json',
-            'Accept: application/json'
-        ];
+        // Initialiser le client Guzzle
+        $this->http_client = new Client([
+            'base_uri' => "https://{$host}",
+            'timeout' => 30,
+            'headers' => [
+                'Api-Key' => $api_key,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json'
+            ]
+        ]);
     }
 
     /**
@@ -75,44 +79,38 @@ class PineconeClient
      */
     private function makeRequest(string $method, string $endpoint, array $data = []): array|false
     {
-        $url = $this->base_url . $endpoint;
+        try {
+            $options = [];
 
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => $this->default_headers,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_SSL_VERIFYPEER => true,
-        ]);
+            if (!empty($data) && in_array($method, ['POST', 'PUT', 'PATCH'])) {
+                $options['json'] = $data;
+            }
 
-        if (!empty($data) && in_array($method, ['POST', 'PUT', 'PATCH'])) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        }
+            $response = $this->http_client->request($method, $endpoint, $options);
+            $body = $response->getBody()->getContents();
 
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
+            $decoded = json_decode($body, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                error_log("Pinecone API response JSON decode error: " . json_last_error_msg());
+                return false;
+            }
 
-        if ($response === false || !empty($error)) {
-            error_log("Pinecone API request failed: {$error}");
+            return $decoded;
+
+        } catch (RequestException $e) {
+            $error_message = $e->getMessage();
+            if ($e->hasResponse()) {
+                $status_code = $e->getResponse()->getStatusCode();
+                $response_body = $e->getResponse()->getBody()->getContents();
+                error_log("Pinecone API error {$status_code}: {$response_body}");
+            } else {
+                error_log("Pinecone API request failed: {$error_message}");
+            }
+            return false;
+        } catch (GuzzleException $e) {
+            error_log("Pinecone API request failed: " . $e->getMessage());
             return false;
         }
-
-        if ($http_code >= 400) {
-            error_log("Pinecone API error {$http_code}: {$response}");
-            return false;
-        }
-
-        $decoded = json_decode($response, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("Pinecone API response JSON decode error: " . json_last_error_msg());
-            return false;
-        }
-
-        return $decoded;
     }
 
     /**

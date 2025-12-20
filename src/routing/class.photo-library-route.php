@@ -393,6 +393,17 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 ),
             )
         );
+
+        // Test Pinecone connection
+        register_rest_route(
+            $this->namespace,
+            '/pinecone/test',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'test_pinecone_connection' ),
+                'permission_callback' => '__return_true',
+            )
+        );
     }
 
     /**
@@ -1212,6 +1223,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
             $tolerance = intval($request->get_param('tolerance') ?? 30);
             $limit = intval($request->get_param('limit') ?? 20);
             $method = $request->get_param('method') ?? 'euclidean';
+            $use_pinecone = $request->get_param('use_pinecone') ?? true;
 
             if (!is_array($rgb_color) || count($rgb_color) !== 3) {
                 return new WP_REST_Response(
@@ -1224,7 +1236,61 @@ class PhotoLibrary_Route extends WP_REST_Controller
             $target_g = (int) $rgb_color[1];
             $target_b = (int) $rgb_color[2];
 
-            // Récupérer toutes les photos avec palette de couleurs
+            // Tenter d'abord la recherche avec Pinecone via Guzzle
+            $pinecone_results = [];
+            $search_source = 'local';
+
+            if ($use_pinecone) {
+                try {
+                    $pinecone_results = $this->search_pinecone_with_guzzle($rgb_color, $limit);
+                    if (!empty($pinecone_results)) {
+                        $search_source = 'pinecone';
+                        error_log('Using Pinecone search results: ' . count($pinecone_results) . ' photos');
+                    }
+                } catch (Exception $e) {
+                    error_log('Pinecone search failed, falling back to local: ' . $e->getMessage());
+                }
+            }
+
+            // Si Pinecone a des résultats, les utiliser
+            if (!empty($pinecone_results)) {
+                $pictures_data = [];
+
+                foreach ($pinecone_results as $match) {
+                    $photo_id = $match['photo_id'];
+                    $photo_info = get_post($photo_id);
+
+                    if ($photo_info && $photo_info->post_type === 'attachment') {
+                        $attachment_url = wp_get_attachment_url($photo_id);
+                        $attachment_metadata = wp_get_attachment_metadata($photo_id);
+
+                        $pictures_data[] = [
+                            'id' => $photo_id,
+                            'title' => $photo_info->post_title,
+                            'url' => $attachment_url,
+                            'similarity_score' => $match['score'],
+                            'dominant_color' => $match['color'],
+                            'dominant_color_hex' => sprintf('#%02x%02x%02x', ...$match['color']),
+                            'search_method' => 'pinecone',
+                            'width' => $attachment_metadata['width'] ?? null,
+                            'height' => $attachment_metadata['height'] ?? null
+                        ];
+                    }
+                }
+
+                return new WP_REST_Response(
+                    array(
+                        'query_color' => $rgb_color,
+                        'query_color_hex' => sprintf('#%02x%02x%02x', $target_r, $target_g, $target_b),
+                        'search_source' => $search_source,
+                        'results_count' => count($pictures_data),
+                        'pictures' => $pictures_data
+                    ),
+                    200
+                );
+            }
+
+            // Fallback: Recherche locale dans WordPress
             $photos_query = "
                 SELECT p.ID, p.post_title, pm.meta_value as palette_data
                 FROM {$wpdb->posts} p
@@ -1245,6 +1311,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
                         'query_color' => $rgb_color,
                         'method' => $method,
                         'tolerance' => $tolerance,
+                        'search_source' => $search_source,
                         'results_count' => 0,
                         'pictures' => [],
                         'message' => 'No photos with color palettes found'
@@ -1384,6 +1451,146 @@ class PhotoLibrary_Route extends WP_REST_Controller
     }
 
     /**
+     * Search photos in Pinecone using Guzzle HTTP client
+     *
+     * @param array $rgb_color RGB color [r, g, b]
+     * @param int $limit Number of results to return
+     * @return array Array of matching photos with scores
+     * @throws Exception If Pinecone API fails
+     */
+    private function search_pinecone_with_guzzle(array $rgb_color, int $limit = 20): array
+    {
+        // Load .env file
+        $env_file = dirname(__FILE__) . '/../../.env';
+        if (file_exists($env_file)) {
+            $this->load_env($env_file);
+        }
+
+        $api_key = $_ENV['PINECONE_API_KEY'] ?? (getenv('PINECONE_API_KEY') ?: null);
+        $index_name = $_ENV['PINECONE_INDEX_NAME'] ?? (getenv('PINECONE_INDEX_NAME') ?: 'phototheque-color-search');
+
+        if (empty($api_key)) {
+            throw new Exception('PINECONE_API_KEY not configured');
+        }
+
+        // Clean API key
+        $api_key = trim($api_key, "'\"");
+
+        // Get index host from Pinecone API
+        $client = new \GuzzleHttp\Client([
+            'base_uri' => 'https://api.pinecone.io',
+            'timeout' => 10.0,
+            'headers' => [
+                'Api-Key' => $api_key,
+                'Accept' => 'application/json',
+            ]
+        ]);
+
+        $response = $client->get("/indexes/{$index_name}");
+        $index_data = json_decode($response->getBody()->getContents(), true);
+
+        if (!isset($index_data['host'])) {
+            throw new Exception('Could not find Pinecone index host');
+        }
+
+        $host = $index_data['host'];
+
+        // Normalize RGB to 0-1 range for Pinecone
+        $normalized_vector = [
+            $rgb_color[0] / 255.0,
+            $rgb_color[1] / 255.0,
+            $rgb_color[2] / 255.0
+        ];
+
+        // Query Pinecone index
+        $index_client = new \GuzzleHttp\Client([
+            'base_uri' => "https://{$host}",
+            'timeout' => 10.0,
+            'headers' => [
+                'Api-Key' => $api_key,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ]
+        ]);
+
+        $query_response = $index_client->post('/query', [
+            'json' => [
+                'vector' => $normalized_vector,
+                'topK' => $limit,
+                'includeMetadata' => true,
+                'namespace' => 'photos'
+            ]
+        ]);
+
+        $results = json_decode($query_response->getBody()->getContents(), true);
+
+        if (!isset($results['matches']) || empty($results['matches'])) {
+            return [];
+        }
+
+        $matches = [];
+        foreach ($results['matches'] as $match) {
+            $photo_id = (int) $match['id'];
+            $score = $match['score'];
+            $metadata = $match['metadata'] ?? [];
+
+            $color = isset($metadata['rgb']) ? $metadata['rgb'] : $rgb_color;
+
+            // Convert normalized color back to 0-255 if needed
+            if (is_array($color) && max($color) <= 1.0) {
+                $color = [
+                    (int) ($color[0] * 255),
+                    (int) ($color[1] * 255),
+                    (int) ($color[2] * 255)
+                ];
+            }
+
+            $matches[] = [
+                'photo_id' => $photo_id,
+                'score' => round($score, 4),
+                'color' => $color
+            ];
+        }
+
+        return $matches;
+    }
+
+    /**
+     * Simple .env file loader
+     */
+    private function load_env(string $path): void
+    {
+        if (!is_readable($path)) {
+            return;
+        }
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            $line = trim($line);
+
+            if (empty($line) || strpos($line, '#') === 0) {
+                continue;
+            }
+
+            if (strpos($line, '=') !== false) {
+                list($name, $value) = explode('=', $line, 2);
+                $name = trim($name);
+                $value = trim($value);
+
+                // Remove quotes
+                if ((str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+                    (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+                    $value = substr($value, 1, -1);
+                }
+
+                putenv(sprintf('%s=%s', $name, $value));
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+
+    /**
      * Calculate color distance using different algorithms
      *
      * @param array $color1 First RGB color [r, g, b]
@@ -1443,6 +1650,62 @@ class PhotoLibrary_Route extends WP_REST_Controller
             case 'euclidean':
             default:
                 return sqrt(3 * pow(255, 2)); // Maximum Euclidean distance in RGB space
+        }
+    }
+
+    /**
+     * Test Pinecone Connection
+     *
+     * Tests the connection to Pinecone by attempting to retrieve index statistics.
+     * This endpoint verifies that the API key and host are configured correctly
+     * and that the Pinecone service is accessible.
+     *
+     * @since 1.0.0
+     *
+     * @return WP_REST_Response Connection test results
+     *
+     * @example GET /wp-json/photo-library/v1/pinecone/test
+     */
+    public function test_pinecone_connection(): WP_REST_Response
+    {
+        try {
+            $color_index = new PL_Color_Search_Index();
+            $stats = $color_index->get_index_stats();
+
+            if (isset($stats['error'])) {
+                return new WP_REST_Response(
+                    array(
+                        'success' => false,
+                        'message' => 'Connection failed',
+                        'error' => $stats['error'],
+                        'timestamp' => current_time('mysql')
+                    ),
+                    500
+                );
+            }
+
+            return new WP_REST_Response(
+                array(
+                    'success' => true,
+                    'message' => 'Connexion réussie !',
+                    'stats' => $stats,
+                    'timestamp' => current_time('mysql')
+                ),
+                200
+            );
+
+        } catch (Exception $e) {
+            error_log('PhotoLibrary Pinecone Test Error: ' . $e->getMessage());
+
+            return new WP_REST_Response(
+                array(
+                    'success' => false,
+                    'message' => 'Connection test failed',
+                    'error' => $e->getMessage(),
+                    'timestamp' => current_time('mysql')
+                ),
+                500
+            );
         }
     }
 }

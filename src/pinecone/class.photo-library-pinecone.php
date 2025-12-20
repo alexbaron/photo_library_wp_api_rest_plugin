@@ -10,6 +10,10 @@
  * @version 1.0.0
  */
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\GuzzleException;
+
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
@@ -42,16 +46,33 @@ class PL_Color_Search_Index
     private string $base_url;
 
     /**
+     * @var Client Client HTTP Guzzle
+     */
+    private Client $http_client;
+
+    /**
      * Constructor
      */
     public function __construct()
     {
         $this->api_key = $this->get_api_key();
-        $this->base_url = 'https://phototheque-color-search-123abc.svc.us-east-1.pinecone.io';
+        // $this->base_url = 'https://phototheque-color-search-123abc.svc.us-east-1.pinecone.io';
+        $this->base_url = 'https://phototheque-color-search-c2u1l8z.svc.aped-4627-b74a.pinecone.io';
 
         if (empty($this->api_key)) {
             throw new Exception('PINECONE_API_KEY environment variable is required');
         }
+
+        // Initialiser le client Guzzle
+        $this->http_client = new Client([
+            'base_uri' => $this->base_url,
+            'timeout' => 30,
+            'headers' => [
+                'Api-Key' => $this->api_key,
+                'Content-Type' => 'application/json',
+                'User-Agent' => 'PhotoLibrary-WordPress-Plugin/1.0'
+            ]
+        ]);
     }
 
     /**
@@ -59,6 +80,26 @@ class PL_Color_Search_Index
      */
     private function get_api_key(): string
     {
+        // Charger le fichier .env s'il existe
+        $env_file = dirname(__FILE__) . '/../../.env';
+        if (file_exists($env_file)) {
+            $lines = file($env_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                if (strpos(trim($line), '#') === 0) {
+                    continue;
+                }
+                if (strpos($line, 'PINECONE_API_KEY=') === 0) {
+                    $api_key = trim(substr($line, strlen('PINECONE_API_KEY=')));
+                    $api_key = trim($api_key, '"\'');
+                    if (!empty($api_key)) {
+                        putenv("PINECONE_API_KEY=$api_key");
+                        $_ENV['PINECONE_API_KEY'] = $api_key;
+                        return $api_key;
+                    }
+                }
+            }
+        }
+
         // Essayer différentes sources de configuration
         $api_key = getenv('PINECONE_API_KEY');
 
@@ -317,46 +358,36 @@ class PL_Color_Search_Index
      */
     private function make_request(string $method, string $endpoint, array $data = []): array
     {
-        $url = $this->base_url . $endpoint;
+        try {
+            $options = [];
 
-        $headers = [
-            'Api-Key: ' . $this->api_key,
-            'Content-Type: application/json',
-            'User-Agent: PhotoLibrary-WordPress-Plugin/1.0'
-        ];
+            if (!empty($data)) {
+                $options['json'] = $data;
+            }
 
-        $args = [
-            'method' => $method,
-            'headers' => $headers,
-            'timeout' => 30,
-            'sslverify' => true
-        ];
+            $response = $this->http_client->request($method, $endpoint, $options);
+            $body = $response->getBody()->getContents();
 
-        if (!empty($data)) {
-            $args['body'] = json_encode($data);
-        }
+            $decoded = json_decode($body, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('Invalid JSON response from Pinecone API: ' . json_last_error_msg());
+            }
 
-        $response = wp_remote_request($url, $args);
+            return $decoded;
 
-        if (is_wp_error($response)) {
-            throw new Exception('HTTP request failed: ' . $response->get_error_message());
-        }
-
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        if ($status_code < 200 || $status_code >= 300) {
-            $error_data = json_decode($body, true);
-            $error_message = $error_data['message'] ?? "HTTP $status_code error";
+        } catch (RequestException $e) {
+            $error_message = $e->getMessage();
+            if ($e->hasResponse()) {
+                $response_body = $e->getResponse()->getBody()->getContents();
+                $error_data = json_decode($response_body, true);
+                if ($error_data && isset($error_data['message'])) {
+                    $error_message = $error_data['message'];
+                }
+            }
             throw new Exception("Pinecone API error: $error_message");
+        } catch (GuzzleException $e) {
+            throw new Exception('HTTP request failed: ' . $e->getMessage());
         }
-
-        $decoded = json_decode($body, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Invalid JSON response from Pinecone API');
-        }
-
-        return $decoded;
     }
 
     /**

@@ -16,6 +16,11 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
+use Symfony\Component\Console\Application;
+use Alex\PhotoLibraryRestApi\Command\PhotoLibrarySfCommand;
+use Alex\PhotoLibraryRestApi\Command\ColorSearchTestCommand;
+use Alex\PhotoLibraryRestApi\Command\WPCLISymfonyBridge;
+
 // Exit if accessed directly.
 if (! defined('ABSPATH')) {
     exit;
@@ -25,6 +30,25 @@ if (! function_exists('add_action')) {
     exit;
 }
 
+// Register Symfony commands as WP-CLI commands
+if (defined('WP_CLI') && WP_CLI) {
+    // Register existing Pinecone test command
+    $symfonyCommand = new PhotoLibrarySfCommand();
+    $commandName = str_replace(':', ' ', $symfonyCommand->getName());
+
+    \WP_CLI::add_command($commandName, new WPCLISymfonyBridge($symfonyCommand), [
+        'shortdesc' => $symfonyCommand->getDescription(),
+    ]);
+
+    // Register new color search test command
+    $colorSearchCommand = new ColorSearchTestCommand();
+    $colorCommandName = str_replace(':', ' ', $colorSearchCommand->getName());
+
+    \WP_CLI::add_command($colorCommandName, new WPCLISymfonyBridge($colorSearchCommand), [
+        'shortdesc' => $colorSearchCommand->getDescription(),
+    ]);
+}
+
 define('PL__PLUGIN_DIR', plugin_dir_path(__FILE__) . 'src');
 
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'class.photo-library.php';
@@ -32,30 +56,30 @@ require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATO
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'class.photo-library-file-cache.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-color.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-rgb-distance.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'command' . DIRECTORY_SEPARATOR . 'class.photo-library-cli.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'command' . DIRECTORY_SEPARATOR . 'class.photo-library-cron-commands.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'Command' . DIRECTORY_SEPARATOR . 'class.photo-library-cli.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'Command' . DIRECTORY_SEPARATOR . 'class.photo-library-cron-commands.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'handler' . DIRECTORY_SEPARATOR . 'class.photo-library-data-handler.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'install' . DIRECTORY_SEPARATOR . 'class.photo-library-install.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'logger' . DIRECTORY_SEPARATOR . 'class.photo-library-palette-logger.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'pinecone' . DIRECTORY_SEPARATOR . 'class.photo-library-pinecone.php';
-require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'routing' . DIRECTORY_SEPARATOR .'class.photo-library-route.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'routing' . DIRECTORY_SEPARATOR . 'class.photo-library-route.php';
 
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'class.photo-library-frontend.php';
 
 
 // Initialize configuration.
 
-add_action('init', array( 'PhotoLibrary', 'init' ));
+add_action('init', [ 'PhotoLibrary', 'init' ]);
 
-add_action('init', array( 'PhotoLibrary_Frontend', 'init' ));
+add_action('init', [ 'PhotoLibrary_Frontend', 'init' ]);
 
 
 // Handle CORS headers for all REST API requests - multiple hooks for maximum coverage.
-add_filter('rest_pre_serve_request', array( 'PhotoLibrary', 'rest_send_cors_headers' ));
-add_action('rest_api_init', array( 'PhotoLibrary', 'rest_send_cors_headers' ));
-add_action('wp_headers', array( 'PhotoLibrary', 'rest_send_cors_headers' ));
+add_filter('rest_pre_serve_request', [ 'PhotoLibrary', 'rest_send_cors_headers' ]);
+add_action('rest_api_init', [ 'PhotoLibrary', 'rest_send_cors_headers' ]);
+add_action('wp_headers', [ 'PhotoLibrary', 'rest_send_cors_headers' ]);
 
 // Handle OPTIONS requests early.
 add_action(
@@ -70,7 +94,7 @@ add_action(
             status_header(200);
             exit();
         }
-    }
+    },
 );
 
 // Additional CORS handling for any request that might bypass the filters.
@@ -81,17 +105,17 @@ add_action(
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
         header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-WP-Nonce');
         header('Access-Control-Allow-Credentials: true');
-    }
+    },
 );
 
-add_action('rest_api_init', array( 'PhotoLibrary', 'register_rest_routes' ));
+add_action('rest_api_init', [ 'PhotoLibrary', 'register_rest_routes' ]);
 
 // Cache invalidation hooks pour serveur mutualisé
-add_action('add_attachment', array( 'PL_Cache_Manager', 'mark_content_updated' ));
-add_action('edit_attachment', array( 'PL_Cache_Manager', 'mark_content_updated' ));
-add_action('delete_attachment', array( 'PL_Cache_Manager', 'mark_content_updated' ));
-add_action('set_object_terms', array( 'PL_Cache_Manager', 'mark_content_updated' ), 10, 4);
+add_action('add_attachment', [ 'PL_Cache_Manager', 'mark_content_updated' ]);
+add_action('edit_attachment', [ 'PL_Cache_Manager', 'mark_content_updated' ]);
+add_action('delete_attachment', [ 'PL_Cache_Manager', 'mark_content_updated' ]);
+add_action('set_object_terms', [ 'PL_Cache_Manager', 'mark_content_updated' ], 10, 4);
 
-register_activation_hook(__FILE__, array( 'PL_INSTALL', 'create_table' ));
+register_activation_hook(__FILE__, [ 'PL_INSTALL', 'create_table' ]);
 
 $installation = new PL_INSTALL();
