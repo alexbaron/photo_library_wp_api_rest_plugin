@@ -125,9 +125,9 @@ try {
             $statusCode = $response->getStatusCode();
 
             $io->text("Response Status: {$statusCode}");
-            
+
             $searchResults = json_decode($responseBody, true);
-            
+
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $io->error('Invalid JSON response: ' . json_last_error_msg());
                 return Command::FAILURE;
@@ -151,7 +151,7 @@ if (!isset($searchResults['pictures'])) {
                     'Title' => $photo['title'] ?? 'N/A',
                     'URL' => $photo['url'] ?? 'N/A',
                     'Similarity Score' => isset($photo['similarity_score']) ? number_format($photo['similarity_score'], 4) : 'N/A',
-                    'Dominant RGB' => isset($photo['dominant_color']) ? 
+                    'Dominant RGB' => isset($photo['dominant_color']) ?
                         "({$photo['dominant_color'][0]}, {$photo['dominant_color'][1]}, {$photo['dominant_color'][2]})" : 'N/A'
                 ];
             }
