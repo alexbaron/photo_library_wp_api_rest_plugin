@@ -1,0 +1,385 @@
+{
+  "title": "PhotoLibrary Symfony Commands Reference",
+  "description": "Complete reference for all Symfony console commands available in PhotoLibrary plugin",
+  "version": "1.0.0",
+  "commands": {
+    "pl:photolibrary": {
+      "name": "pl:photolibrary",
+      "description": "PhotoLibrary main operations (palettes, cache, stats, pinecone)",
+      "help": "Execute various PhotoLibrary operations like palette sync, cache management, statistics and Pinecone operations.",
+      "class": "Alex\\PhotoLibraryRestApi\\Command\\PhotoLibraryCommand",
+      "arguments": {
+        "operation": {
+          "type": "required",
+          "description": "Operation to execute",
+          "valid_values": [
+            "clear-palettes",
+            "sync-palettes", 
+            "clear-cache",
+            "stats",
+            "rebuild-palettes",
+            "rebuild-pinecone-index"
+          ]
+        }
+      },
+      "options": {
+        "batch-size": {
+          "short": "b",
+          "type": "value_required",
+          "description": "Batch size for processing operations",
+          "default": 20
+        },
+        "max-images": {
+          "short": "m",
+          "type": "value_required", 
+          "description": "Maximum number of images to process (0 = all)",
+          "default": 0
+        },
+        "force": {
+          "short": "f",
+          "type": "no_value",
+          "description": "Force execution even if data already exists"
+        },
+        "dry-run": {
+          "short": null,
+          "type": "no_value",
+          "description": "Show what would be done without executing"
+        },
+        "confirm": {
+          "short": "c",
+          "type": "no_value",
+          "description": "Auto-confirm destructive operations"
+        },
+        "clear-first": {
+          "short": null,
+          "type": "no_value",
+          "description": "Clear Pinecone index before rebuilding"
+        }
+      },
+      "examples": {
+        "sync_palettes": {
+          "command": "ddev exec \"wp pl photolibrary sync-palettes --batch-size=10\"",
+          "description": "Synchronize color palettes for all photos with custom batch size"
+        },
+        "rebuild_pinecone": {
+          "command": "ddev exec \"wp pl photolibrary rebuild-pinecone-index --clear-first --batch-size=5\"",
+          "description": "Rebuild Pinecone index from scratch with small batches"
+        },
+        "show_stats": {
+          "command": "ddev exec \"wp pl photolibrary stats\"",
+          "description": "Display PhotoLibrary statistics (photos, palettes, cache)"
+        },
+        "clear_cache_confirmed": {
+          "command": "ddev exec \"wp pl photolibrary clear-cache --confirm\"",
+          "description": "Clear all cache without confirmation prompt"
+        },
+        "dry_run_palettes": {
+          "command": "ddev exec \"wp pl photolibrary rebuild-palettes --dry-run --max-images=50\"",
+          "description": "Preview palette rebuild for first 50 images without making changes"
+        }
+      },
+      "operations": {
+        "clear-palettes": "Delete all existing color palette metadata from WordPress database",
+        "sync-palettes": "Generate and synchronize color palettes for photos without existing palettes",
+        "clear-cache": "Clear all PhotoLibrary cache data",
+        "stats": "Display comprehensive statistics about photos, palettes, and cache",
+        "rebuild-palettes": "Force regenerate color palettes for all photos",
+        "rebuild-pinecone-index": "Rebuild Pinecone vector index with all photo color data"
+      }
+    },
+    "pl:test-color-search": {
+      "name": "pl:test-color-search",
+      "description": "Test color-based search using WordPress REST API",
+      "help": "Searches for photos with similar dominant colors using the WordPress /pictures/by_dominant_color endpoint.",
+      "class": "Alex\\PhotoLibraryRestApi\\Command\\ColorSearchTestCommand",
+      "arguments": {
+        "color": {
+          "type": "required",
+          "description": "RGB color to search for",
+          "format": "\"r,g,b\"",
+          "note": "Use quotes around the color value"
+        }
+      },
+      "options": {
+        "limit": {
+          "short": "l",
+          "type": "value_required",
+          "description": "Number of results to return",
+          "default": 10,
+          "range": "1-100"
+        },
+        "tolerance": {
+          "short": "t", 
+          "type": "value_required",
+          "description": "Color tolerance",
+          "default": 30,
+          "range": "0-255"
+        },
+        "method": {
+          "short": "m",
+          "type": "value_required",
+          "description": "Distance calculation method",
+          "default": "euclidean",
+          "valid_values": ["euclidean", "manhattan", "weighted"]
+        },
+        "wp-url": {
+          "short": null,
+          "type": "value_required",
+          "description": "WordPress site URL",
+          "default": "https://phototheque-wp.ddev.site"
+        }
+      },
+      "examples": {
+        "red_search": {
+          "command": "ddev exec \"wp pl test-color-search '255,0,0' --method=euclidean\"",
+          "description": "Search for red-colored photos using euclidean distance"
+        },
+        "blue_high_tolerance": {
+          "command": "ddev exec \"wp pl test-color-search '0,0,255' --tolerance=50 --limit=20\"",
+          "description": "Search for blue photos with high tolerance and more results"
+        },
+        "manhattan_method": {
+          "command": "ddev exec \"wp pl test-color-search '128,128,128' --method=manhattan\"",
+          "description": "Search for gray photos using Manhattan distance calculation"
+        },
+        "custom_url": {
+          "command": "ddev exec \"wp pl test-color-search '255,128,0' --wp-url=https://mysite.com\"",
+          "description": "Search on custom WordPress site URL"
+        }
+      }
+    },
+    "pl:cron-tasks": {
+      "name": "pl:cron-tasks",
+      "description": "Execute PhotoLibrary maintenance tasks (sync, cache cleanup)",
+      "help": "Execute various maintenance tasks like palette synchronization and cache cleanup.",
+      "class": "Alex\\PhotoLibraryRestApi\\Command\\CronTasksCommand",
+      "arguments": {
+        "task": {
+          "type": "required",
+          "description": "Task to execute",
+          "valid_values": ["sync-palettes", "cleanup-cache", "all"]
+        }
+      },
+      "options": {
+        "limit": {
+          "short": "l",
+          "type": "value_required",
+          "description": "Number of pictures to process for sync-palettes",
+          "default": 50,
+          "range": "1-1000"
+        },
+        "batch-size": {
+          "short": "b",
+          "type": "value_required",
+          "description": "Batch size for processing",
+          "default": 20,
+          "range": "1-100"
+        },
+        "force": {
+          "short": "f",
+          "type": "no_value",
+          "description": "Force execution even if pictures already have palettes"
+        },
+        "dry-run": {
+          "short": null,
+          "type": "no_value",
+          "description": "Show what would be done without executing"
+        }
+      },
+      "examples": {
+        "sync_maintenance": {
+          "command": "ddev exec \"wp pl cron-tasks sync-palettes --limit=100\"",
+          "description": "Sync palettes for up to 100 photos during maintenance"
+        },
+        "cleanup_cache": {
+          "command": "ddev exec \"wp pl cron-tasks cleanup-cache\"",
+          "description": "Clean up old cache files and expired data"
+        },
+        "all_tasks": {
+          "command": "ddev exec \"wp pl cron-tasks all --batch-size=10\"",
+          "description": "Execute all maintenance tasks with small batch size"
+        },
+        "force_sync": {
+          "command": "ddev exec \"wp pl cron-tasks sync-palettes --force --limit=50\"",
+          "description": "Force regenerate palettes even for photos that already have them"
+        }
+      },
+      "tasks": {
+        "sync-palettes": "Synchronize color palettes for photos without existing data",
+        "cleanup-cache": "Remove old cache files and expired search results",
+        "all": "Execute both sync-palettes and cleanup-cache sequentially"
+      }
+    },
+    "pl:parallel-process": {
+      "name": "pl:parallel-process", 
+      "description": "Execute parallel processing for PhotoLibrary operations",
+      "help": "Execute parallel processing operations with various strategies (fork, workers, http pool).",
+      "class": "Alex\\PhotoLibraryRestApi\\Command\\ParallelProcessingCommand",
+      "arguments": {
+        "operation": {
+          "type": "required",
+          "description": "Operation to execute",
+          "valid_values": ["sync-palettes"]
+        }
+      },
+      "options": {
+        "strategy": {
+          "short": "s",
+          "type": "value_required",
+          "description": "Parallel strategy",
+          "default": "sequential",
+          "valid_values": ["fork", "workers", "http-pool", "sequential"]
+        },
+        "parallel-count": {
+          "short": "p",
+          "type": "value_required",
+          "description": "Number of parallel processes/workers",
+          "default": 4
+        },
+        "limit": {
+          "short": "l",
+          "type": "value_required",
+          "description": "Number of pictures to process",
+          "default": 100
+        },
+        "batch-size": {
+          "short": "b",
+          "type": "value_required",
+          "description": "Batch size for processing",
+          "default": 20
+        },
+        "force": {
+          "short": "f",
+          "type": "no_value",
+          "description": "Force execution even if pictures already have palettes"
+        },
+        "dry-run": {
+          "short": null,
+          "type": "no_value",
+          "description": "Show what would be done without executing"
+        }
+      },
+      "examples": {
+        "fork_strategy": {
+          "command": "ddev exec \"wp pl parallel-process sync-palettes --strategy=fork --parallel-count=8\"",
+          "description": "Use fork strategy with 8 parallel processes"
+        },
+        "workers_strategy": {
+          "command": "ddev exec \"wp pl parallel-process sync-palettes --strategy=workers --parallel-count=4 --limit=200\"",
+          "description": "Use worker processes for processing 200 photos"
+        },
+        "http_pool": {
+          "command": "ddev exec \"wp pl parallel-process sync-palettes --strategy=http-pool --parallel-count=6\"",
+          "description": "Use HTTP pool strategy with 6 concurrent requests"
+        },
+        "sequential_safe": {
+          "command": "ddev exec \"wp pl parallel-process sync-palettes --strategy=sequential\"",
+          "description": "Use safe sequential processing (no parallelism)"
+        }
+      },
+      "strategies": {
+        "fork": "Fork multiple processes (requires pcntl extension)",
+        "workers": "Use worker processes for parallel execution",
+        "http-pool": "Use HTTP request pool for concurrent processing",
+        "sequential": "Process items one by one (safe fallback)"
+      }
+    },
+    "pl:test-pinecone": {
+      "name": "pl:test-pinecone",
+      "description": "Test Pinecone connection using Guzzle",
+      "help": "Tests the connection to Pinecone vector database and displays index stats.",
+      "class": "Alex\\PhotoLibraryRestApi\\Command\\PhotoLibrarySfCommand",
+      "arguments": {},
+      "options": {},
+      "examples": {
+        "basic_test": {
+          "command": "ddev exec \"wp pl test-pinecone\"",
+          "description": "Test Pinecone connection and display index statistics"
+        }
+      },
+      "features": [
+        "Validates Pinecone API key from environment",
+        "Retrieves index information and host",
+        "Tests connectivity to index endpoint", 
+        "Displays comprehensive index statistics",
+        "Shows vector count and namespace information"
+      ]
+    }
+  },
+  "common_patterns": {
+    "mysql_palette_update": {
+      "description": "Update color palettes in WordPress MySQL database",
+      "commands": [
+        "ddev exec \"wp pl photolibrary sync-palettes --batch-size=20\"",
+        "ddev exec \"wp pl photolibrary rebuild-palettes --force --batch-size=10\""
+      ]
+    },
+    "pinecone_index_update": {
+      "description": "Update Pinecone vector index with color data",
+      "commands": [
+        "ddev exec \"wp pl photolibrary rebuild-pinecone-index --batch-size=5\"",
+        "ddev exec \"wp pl photolibrary rebuild-pinecone-index --clear-first --batch-size=3\""
+      ]
+    },
+    "full_system_rebuild": {
+      "description": "Complete rebuild of both MySQL palettes and Pinecone index",
+      "commands": [
+        "ddev exec \"wp pl photolibrary clear-palettes --confirm\"",
+        "ddev exec \"wp pl photolibrary sync-palettes --batch-size=15\"",
+        "ddev exec \"wp pl photolibrary rebuild-pinecone-index --clear-first --batch-size=5\"",
+        "ddev exec \"wp pl photolibrary stats\""
+      ]
+    },
+    "maintenance_routine": {
+      "description": "Regular maintenance tasks for production environment",
+      "commands": [
+        "ddev exec \"wp pl cron-tasks sync-palettes --limit=100\"",
+        "ddev exec \"wp pl cron-tasks cleanup-cache\"",
+        "ddev exec \"wp pl photolibrary stats\""
+      ]
+    }
+  },
+  "environment_setup": {
+    "required_files": [
+      ".env file with PINECONE_API_KEY and PINECONE_INDEX_NAME"
+    ],
+    "dependencies": [
+      "GuzzleHttp/Guzzle for HTTP requests",
+      "Symfony Console for command framework",
+      "WordPress with PhotoLibrary plugin"
+    ],
+    "php_extensions": [
+      "pcntl (optional, for fork strategy in parallel processing)",
+      "curl (for HTTP requests)",
+      "json (for data processing)"
+    ]
+  },
+  "troubleshooting": {
+    "batch_failures": {
+      "description": "Batch processing fails with errors",
+      "solutions": [
+        "Reduce batch-size to smaller values (3-5)",
+        "Use --dry-run to preview operations",
+        "Check logs for specific error messages",
+        "Test Pinecone connection with pl:test-pinecone"
+      ]
+    },
+    "memory_issues": {
+      "description": "Out of memory errors during processing",
+      "solutions": [
+        "Reduce batch-size and max-images",
+        "Use sequential strategy instead of parallel",
+        "Clear cache before large operations"
+      ]
+    },
+    "pinecone_connectivity": {
+      "description": "Pinecone API connection issues",
+      "solutions": [
+        "Verify .env file exists and is readable",
+        "Check PINECONE_API_KEY format and validity",
+        "Test with pl:test-pinecone command",
+        "Use diagnostics endpoint via REST API"
+      ]
+    }
+  }
+}
