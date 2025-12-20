@@ -404,6 +404,17 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 'permission_callback' => '__return_true',
             )
         );
+
+        // Pinecone diagnostics for production debugging
+        register_rest_route(
+            $this->namespace,
+            '/pinecone/diagnostics',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'get_pinecone_diagnostics' ),
+                'permission_callback' => '__return_true',
+            )
+        );
     }
 
     /**
@@ -1242,10 +1253,14 @@ class PhotoLibrary_Route extends WP_REST_Controller
 
             if ($use_pinecone) {
                 try {
+                    error_log('Attempting Pinecone search for color: ' . json_encode($rgb_color) . ' with limit: ' . $limit);
                     $pinecone_results = $this->search_pinecone_with_guzzle($rgb_color, $limit);
+                    error_log('Pinecone returned ' . count($pinecone_results) . ' results');
                     if (!empty($pinecone_results)) {
                         $search_source = 'pinecone';
                         error_log('Using Pinecone search results: ' . count($pinecone_results) . ' photos');
+                    } else {
+                        error_log('Pinecone returned 0 results, falling back to local search');
                     }
                 } catch (Exception $e) {
                     error_log('Pinecone search failed, falling back to local: ' . $e->getMessage());
@@ -1524,7 +1539,17 @@ class PhotoLibrary_Route extends WP_REST_Controller
 
         $results = json_decode($query_response->getBody()->getContents(), true);
 
+        // Debug logging
+        error_log('Pinecone query request: ' . json_encode([
+            'vector' => $normalized_vector,
+            'topK' => $limit,
+            'includeMetadata' => true,
+            'namespace' => 'photos'
+        ]));
+        error_log('Pinecone raw response: ' . json_encode($results));
+
         if (!isset($results['matches']) || empty($results['matches'])) {
+            error_log('No matches found in Pinecone response');
             return [];
         }
 
@@ -1707,5 +1732,142 @@ class PhotoLibrary_Route extends WP_REST_Controller
                 500
             );
         }
+    }
+
+    /**
+     * Get Pinecone Diagnostics for Production Debugging
+     *
+     * Comprehensive diagnostic endpoint to troubleshoot Pinecone issues
+     * in production environment. Checks configuration, connectivity,
+     * and environment-specific issues.
+     *
+     * @since 1.0.0
+     *
+     * @return WP_REST_Response Comprehensive diagnostic information
+     *
+     * @example GET /wp-json/photo-library/v1/pinecone/diagnostics
+     */
+    public function get_pinecone_diagnostics(): WP_REST_Response
+    {
+        $diagnostics = array(
+            'timestamp' => current_time('mysql'),
+            'environment' => array(),
+            'configuration' => array(),
+            'connectivity' => array(),
+            'errors' => array()
+        );
+
+        // Environment checks
+        $diagnostics['environment']['php_version'] = PHP_VERSION;
+        $diagnostics['environment']['wp_version'] = get_bloginfo('version');
+        $diagnostics['environment']['memory_limit'] = ini_get('memory_limit');
+        $diagnostics['environment']['max_execution_time'] = ini_get('max_execution_time');
+        $diagnostics['environment']['guzzle_available'] = class_exists('GuzzleHttp\\Client');
+
+        // Configuration checks
+        try {
+            $env_file = dirname(__FILE__) . '/../../.env';
+            $diagnostics['configuration']['env_file_exists'] = file_exists($env_file);
+            $diagnostics['configuration']['env_file_readable'] = is_readable($env_file);
+
+            if (file_exists($env_file)) {
+                $this->load_env($env_file);
+            }
+
+            $api_key = $_ENV['PINECONE_API_KEY'] ?? (getenv('PINECONE_API_KEY') ?: null);
+            $index_name = $_ENV['PINECONE_INDEX_NAME'] ?? (getenv('PINECONE_INDEX_NAME') ?: 'phototheque-color-search');
+
+            $diagnostics['configuration']['api_key_configured'] = !empty($api_key);
+            $diagnostics['configuration']['api_key_length'] = $api_key ? strlen($api_key) : 0;
+            $diagnostics['configuration']['index_name'] = $index_name;
+
+            // Test basic connectivity
+            if (!empty($api_key)) {
+                try {
+                    $client = new \GuzzleHttp\Client([
+                        'base_uri' => 'https://api.pinecone.io',
+                        'timeout' => 5.0,
+                        'headers' => [
+                            'Api-Key' => trim($api_key, "'\""),
+                            'Accept' => 'application/json',
+                        ]
+                    ]);
+
+                    $response = $client->get("/indexes/{$index_name}");
+                    $index_data = json_decode($response->getBody()->getContents(), true);
+
+                    $diagnostics['connectivity']['api_reachable'] = true;
+                    $diagnostics['connectivity']['index_exists'] = isset($index_data['host']);
+                    $diagnostics['connectivity']['index_host'] = $index_data['host'] ?? 'Not found';
+
+                    if (isset($index_data['host'])) {
+                        // Test index connectivity
+                        $index_client = new \GuzzleHttp\Client([
+                            'base_uri' => "https://{$index_data['host']}",
+                            'timeout' => 5.0,
+                            'headers' => [
+                                'Api-Key' => trim($api_key, "'\""),
+                                'Accept' => 'application/json',
+                                'Content-Type' => 'application/json',
+                            ]
+                        ]);
+
+                        $stats_response = $index_client->post('/describe_index_stats');
+                        $stats = json_decode($stats_response->getBody()->getContents(), true);
+                        $diagnostics['connectivity']['index_stats'] = $stats;
+                        $diagnostics['connectivity']['index_reachable'] = true;
+                    }
+
+                } catch (Exception $e) {
+                    $diagnostics['connectivity']['api_reachable'] = false;
+                    $diagnostics['errors'][] = array(
+                        'type' => 'connectivity',
+                        'message' => $e->getMessage(),
+                        'code' => $e->getCode()
+                    );
+                }
+            }
+
+        } catch (Exception $e) {
+            $diagnostics['errors'][] = array(
+                'type' => 'configuration',
+                'message' => $e->getMessage(),
+                'code' => $e->getCode()
+            );
+        }
+
+        // WordPress database checks
+        try {
+            global $wpdb;
+            $photos_count = $wpdb->get_var("
+                SELECT COUNT(*)
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                WHERE p.post_type = 'attachment'
+                AND p.post_mime_type LIKE 'image/%'
+                AND pm.meta_key = '_pl_palette'
+                AND pm.meta_value IS NOT NULL
+                AND pm.meta_value != ''
+            ");
+
+            $diagnostics['database']['photos_with_palettes'] = (int) $photos_count;
+
+        } catch (Exception $e) {
+            $diagnostics['errors'][] = array(
+                'type' => 'database',
+                'message' => $e->getMessage(),
+                'code' => $e->getCode()
+            );
+        }
+
+        // Determine overall status
+        $has_errors = !empty($diagnostics['errors']);
+        $pinecone_ready = $diagnostics['configuration']['api_key_configured'] &&
+                         ($diagnostics['connectivity']['api_reachable'] ?? false);
+
+        $status_code = $has_errors ? 500 : 200;
+        $diagnostics['overall_status'] = $has_errors ? 'error' : ($pinecone_ready ? 'ready' : 'warning');
+
+        return new WP_REST_Response($diagnostics, $status_code);
     }
 }
