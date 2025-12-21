@@ -14,7 +14,7 @@
           "description": "Operation to execute",
           "valid_values": [
             "clear-palettes",
-            "sync-palettes", 
+            "sync-palettes",
             "clear-cache",
             "stats",
             "rebuild-palettes",
@@ -31,7 +31,7 @@
         },
         "max-images": {
           "short": "m",
-          "type": "value_required", 
+          "type": "value_required",
           "description": "Maximum number of images to process (0 = all)",
           "default": 0
         },
@@ -109,7 +109,7 @@
           "range": "1-100"
         },
         "tolerance": {
-          "short": "t", 
+          "short": "t",
           "type": "value_required",
           "description": "Color tolerance",
           "default": 30,
@@ -211,7 +211,7 @@
       }
     },
     "pl:parallel-process": {
-      "name": "pl:parallel-process", 
+      "name": "pl:parallel-process",
       "description": "Execute parallel processing for PhotoLibrary operations",
       "help": "Execute parallel processing operations with various strategies (fork, workers, http pool).",
       "class": "Alex\\PhotoLibraryRestApi\\Command\\ParallelProcessingCommand",
@@ -300,7 +300,7 @@
       "features": [
         "Validates Pinecone API key from environment",
         "Retrieves index information and host",
-        "Tests connectivity to index endpoint", 
+        "Tests connectivity to index endpoint",
         "Displays comprehensive index statistics",
         "Shows vector count and namespace information"
       ]

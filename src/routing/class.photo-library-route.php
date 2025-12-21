@@ -1310,7 +1310,9 @@ class PhotoLibrary_Route extends WP_REST_Controller
                         'query_color_hex' => sprintf('#%02x%02x%02x', $target_r, $target_g, $target_b),
                         'search_source' => $search_source,
                         'results_count' => count($pictures_data),
-                        'pictures' => $pictures_data
+                        'background_photo' => !empty($pictures_data) ? $pictures_data[0] : null,
+                        'thumbnail_photos' => $pictures_data,
+                        'pictures' => $pictures_data // Keep for backward compatibility
                     ),
                     200
                 );
@@ -1339,7 +1341,9 @@ class PhotoLibrary_Route extends WP_REST_Controller
                         'tolerance' => $tolerance,
                         'search_source' => $search_source,
                         'results_count' => 0,
-                        'pictures' => [],
+                        'background_photo' => null,
+                        'thumbnail_photos' => [],
+                        'pictures' => [], // Keep for backward compatibility
                         'message' => 'No photos with color palettes found'
                     ),
                     200
@@ -1441,7 +1445,9 @@ class PhotoLibrary_Route extends WP_REST_Controller
                         'method' => $method,
                         'tolerance' => $tolerance,
                         'results_count' => count($pictures_data),
-                        'pictures' => $pictures_data,
+                        'background_photo' => !empty($pictures_data) ? $pictures_data[0] : null,
+                        'thumbnail_photos' => $pictures_data,
+                        'pictures' => $pictures_data, // Keep for backward compatibility
                         'total_photos_scanned' => count($photos_with_palettes)
                     ),
                     200
@@ -1455,7 +1461,9 @@ class PhotoLibrary_Route extends WP_REST_Controller
                     'method' => $method,
                     'tolerance' => $tolerance,
                     'results_count' => 0,
-                    'pictures' => [],
+                    'background_photo' => null,
+                    'thumbnail_photos' => [],
+                    'pictures' => [], // Keep for backward compatibility
                     'total_photos_scanned' => count($photos_with_palettes),
                     'message' => 'No photos found within the specified color tolerance'
                 ),
