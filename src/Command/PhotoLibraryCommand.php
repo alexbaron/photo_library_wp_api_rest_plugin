@@ -466,6 +466,7 @@ class PhotoLibraryCommand extends Command
         $batches = array_chunk($photosToSync, $batchSize);
         $uploaded = 0;
         $errors = 0;
+        $errorDetails = []; // Collect detailed error information
 
         foreach ($batches as $batchIndex => $batch) {
             $io->writeln("📦 Processing batch " . ($batchIndex + 1) . "/" . count($batches));
@@ -478,7 +479,16 @@ class PhotoLibraryCommand extends Command
                 $errors++;
                 $errorMsg = isset($uploadResult['error_count']) ? "Errors: {$uploadResult['error_count']}" : "Unknown error";
                 $io->writeln("❌ Batch failed: " . $errorMsg);
-						}
+                
+                // Collect detailed error information
+                $errorDetails[] = [
+                    'batch_index' => $batchIndex + 1,
+                    'batch_size' => count($batch),
+                    'error_count' => $uploadResult['error_count'] ?? 0,
+                    'success_count' => $uploadResult['success_count'] ?? 0,
+                    'photo_ids' => array_column(array_column($batch, 'metadata'), 'photo_id')
+                ];
+            }
             // Small pause between batches
             sleep(1);
         }
@@ -491,6 +501,25 @@ class PhotoLibraryCommand extends Command
             ['Batch errors', $errors],
             ['Final index size', $statsAfter['total_vectors']],
         ]);
+
+        // Display detailed error information if any errors occurred
+        if ($errors > 0 && !empty($errorDetails)) {
+            $io->section('🚨 Error Details');
+            $io->writeln("Total failed batches: {$errors}");
+            
+            foreach ($errorDetails as $error) {
+                $io->writeln('');
+                $io->writeln("❌ Batch {$error['batch_index']}:");
+                $io->writeln("   - Batch size: {$error['batch_size']}");
+                $io->writeln("   - Success count: {$error['success_count']}");
+                $io->writeln("   - Error count: {$error['error_count']}");
+                $io->writeln("   - Photo IDs: " . implode(', ', array_slice($error['photo_ids'], 0, 5)) . 
+                            (count($error['photo_ids']) > 5 ? '... (showing first 5)' : ''));
+            }
+            
+            $io->note('💡 Check the debug.log file for detailed Pinecone API error messages');
+            $io->note('💡 You can also check /logs/pinecone_responses.log for HTTP response details');
+        }
 
         return Command::SUCCESS;
     }
