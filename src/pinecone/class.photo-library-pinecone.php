@@ -139,7 +139,7 @@ class PL_Color_Search_Index
                         'values' => $normalized_rgb,
                         'metadata' => array_merge([
                             'photo_id' => $photo_id,
-                            'rgb' => implode(',', $rgb_color), // Convert array to string "r,g,b"
+                            'rgb' => $rgb_color,
                             'uploaded_at' => current_time('mysql')
                         ], $metadata)
                     ]
@@ -198,7 +198,7 @@ class PL_Color_Search_Index
                         'values' => $normalized_rgb,
                         'metadata' => array_merge([
                             'photo_id' => $photo['id'],
-                            'rgb' => implode(',', $photo['rgb']), // Convert array to string "r,g,b"
+                            'rgb' => $photo['rgb'],
                             'uploaded_at' => current_time('mysql')
                         ], $photo['metadata'] ?? [])
                     ];
@@ -277,19 +277,10 @@ class PL_Color_Search_Index
                 $photo_id = intval($match['id']);
                 $metadata = $match['metadata'] ?? [];
 
-                // Convert RGB string back to array if it exists
-                $color_match = null;
-                if (isset($metadata['rgb'])) {
-                    $rgb_parts = explode(',', $metadata['rgb']);
-                    if (count($rgb_parts) === 3) {
-                        $color_match = array_map('intval', $rgb_parts);
-                    }
-                }
-
                 $results[] = [
                     'photo_id' => $photo_id,
                     'color_score' => $match['score'],
-                    'color_match' => $color_match,
+                    'color_match' => $metadata['rgb'] ?? null,
                     'metadata' => $metadata
                 ];
             }
@@ -390,12 +381,6 @@ class PL_Color_Search_Index
     private function make_request(string $method, string $endpoint, array $data = []): array
     {
         try {
-            // Debug: Log request details
-            error_log('Pinecone make_request - Method: ' . $method);
-            error_log('Pinecone make_request - Endpoint: ' . $endpoint);
-            error_log('Pinecone make_request - Base URL: ' . $this->base_url);
-            error_log('Pinecone make_request - Data size: ' . json_encode(count($data)));
-
             $options = [];
 
             if (!empty($data)) {
@@ -403,12 +388,7 @@ class PL_Color_Search_Index
             }
 
             $response = $this->http_client->request($method, $endpoint, $options);
-            $status_code = $response->getStatusCode();
             $body = $response->getBody()->getContents();
-
-            // Debug: Log response details
-            error_log('Pinecone make_request - Status Code: ' . $status_code);
-            error_log('Pinecone make_request - Response Body: ' . $body);
 
             // Log response body to file
             $log_file = dirname(__FILE__) . '/../../logs/pinecone_responses.log';
@@ -417,12 +397,11 @@ class PL_Color_Search_Index
                 mkdir($log_dir, 0755, true);
             }
             $timestamp = date('Y-m-d H:i:s');
-            $log_entry = "[$timestamp] $method $endpoint (Status: $status_code)\nResponse: $body\n---\n";
+            $log_entry = "[$timestamp] $method $endpoint\nResponse: $body\n---\n";
             file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
 
             $decoded = json_decode($body, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log('Pinecone make_request - JSON decode error: ' . json_last_error_msg());
                 throw new Exception('Invalid JSON response from Pinecone API: ' . json_last_error_msg());
             }
 
@@ -430,14 +409,8 @@ class PL_Color_Search_Index
 
         } catch (RequestException $e) {
             $error_message = $e->getMessage();
-            $status_code = $e->getCode();
-
-            error_log('Pinecone make_request - RequestException: ' . $error_message);
-            error_log('Pinecone make_request - Status Code: ' . $status_code);
-
             if ($e->hasResponse()) {
                 $response_body = $e->getResponse()->getBody()->getContents();
-                error_log('Pinecone make_request - Error Response Body: ' . $response_body);
                 $error_data = json_decode($response_body, true);
                 if ($error_data && isset($error_data['message'])) {
                     $error_message = $error_data['message'];
@@ -445,7 +418,6 @@ class PL_Color_Search_Index
             }
             throw new Exception("Pinecone API error: $error_message");
         } catch (GuzzleException $e) {
-            error_log('Pinecone make_request - GuzzleException: ' . $e->getMessage());
             throw new Exception('HTTP request failed: ' . $e->getMessage());
         }
     }
