@@ -199,6 +199,8 @@ class PL_Color_Search_Index
 
                 $response = $this->make_request('POST', '/vectors/upsert', $vector_data);
 
+								var_dump($response);
+
                 if (isset($response['upsertedCount'])) {
                     $results['success_count'] += $response['upsertedCount'];
                 } else {
@@ -367,6 +369,16 @@ class PL_Color_Search_Index
 
             $response = $this->http_client->request($method, $endpoint, $options);
             $body = $response->getBody()->getContents();
+
+            // Log response body to file
+            $log_file = dirname(__FILE__) . '/../../logs/pinecone_responses.log';
+            $log_dir = dirname($log_file);
+            if (!file_exists($log_dir)) {
+                mkdir($log_dir, 0755, true);
+            }
+            $timestamp = date('Y-m-d H:i:s');
+            $log_entry = "[$timestamp] $method $endpoint\nResponse: $body\n---\n";
+            file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
 
             $decoded = json_decode($body, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
