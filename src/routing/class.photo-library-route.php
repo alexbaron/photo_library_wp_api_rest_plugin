@@ -1579,11 +1579,25 @@ class PhotoLibrary_Route extends WP_REST_Controller
 
         $matches = [];
         foreach ($results['matches'] as $match) {
-            $photo_id = (int) $match['id'];
-            $score = $match['score'];
             $metadata = $match['metadata'] ?? [];
+            
+            // Get photo_id from metadata instead of match id (which is prefixed with 'img_')
+            $photo_id = isset($metadata['photo_id']) ? (int) $metadata['photo_id'] : 0;
+            
+            // Skip if no valid photo_id
+            if ($photo_id === 0) {
+                error_log('Pinecone match missing photo_id in metadata: ' . json_encode($match));
+                continue;
+            }
+            
+            $score = $match['score'];
 
             $color = isset($metadata['rgb']) ? $metadata['rgb'] : $rgb_color;
+            
+            // Parse RGB string if it's in "r,g,b" format
+            if (is_string($color) && strpos($color, ',') !== false) {
+                $color = array_map('intval', explode(',', $color));
+            }
 
             // Convert normalized color back to 0-255 if needed
             if (is_array($color) && max($color) <= 1.0) {
