@@ -30,8 +30,38 @@ export default {
 }
 ```
 
-## Déploiement
-Fichier uploadé via SSH :
+## Fix CORS et redirection 301 (29 décembre 2024 - 23h05)
+
+### Problème supplémentaire
+Erreurs CORS sur les appels API :
+```
+Access to XMLHttpRequest at 'https://photographie.stephanewagner.com/wp-json/...' 
+from origin 'https://www.photographie.stephanewagner.com' has been blocked by CORS policy
+GET https://photographie.stephanewagner.com/... net::ERR_FAILED 301 (Moved Permanently)
+```
+
+### Cause
+Le serveur redirige automatiquement `photographie.stephanewagner.com` vers `www.photographie.stephanewagner.com` (301).
+L'app React utilisait l'URL sans `www`, causant :
+1. Une redirection 301 qui empêche les headers CORS
+2. Un problème de cross-origin entre `www` et sans `www`
+
+### Solution
+Modification de l'URL de l'API dans le fichier buildé :
 ```bash
+# Backup et correction
+cp public/assets/index-CBt_eoBb.js public/assets/index-CBt_eoBb.js.backup
+sed -i '' 's|https://photographie\.stephanewagner\.com/wp-json|https://www.photographie.stephanewagner.com/wp-json|g' public/assets/index-CBt_eoBb.js
+```
+
+**Note :** Pour corriger à la source, modifier l'URL de l'API dans le projet React source avant le build.
+
+## Déploiement
+Fichiers uploadés via SSH :
+```bash
+# Fix des chemins relatifs
 scp public/index.html dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/index.html
+
+# Fix de l'URL API (www)
+scp public/assets/index-CBt_eoBb.js dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/assets/index-CBt_eoBb.js
 ```
