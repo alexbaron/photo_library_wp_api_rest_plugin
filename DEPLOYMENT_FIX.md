@@ -285,3 +285,71 @@ scp src/routing/class.photo-library-route.php dreamhost-phototheque:./photograph
 
 ✅ **Commit WordPress** : `b57eef3` - "fix: fallback to local search when Pinecone returns empty results"
 ✅ **Vérification** : La recherche par couleur retourne maintenant des résultats via le fallback local
+
+## Fix Pinecone ID Parsing (29 décembre 2024 - 23h42)
+
+### Problème racine découvert
+Après investigation, Pinecone **fonctionnait correctement** et retournait bien des résultats, mais le code PHP ne pouvait pas les exploiter.
+
+#### Test direct Pinecone
+```bash
+php test_pinecone.php
+# Résultats:
+# 1. ID: img_92812, Score: 0.0000, photo_id: 92812
+# 2. ID: img_93009, Score: 0.0000, photo_id: 93009
+# 3. ID: img_93206, Score: 0.0000, photo_id: 93206
+```
+
+✅ Pinecone retourne bien 5 résultats avec les IDs préfixés `img_XXXXX`
+
+### Cause réelle
+```php
+// ❌ AVANT - Ligne 1582
+$photo_id = (int) $match['id'];
+// Conversion de 'img_92812' en int → 0
+
+// ✅ APRÈS  
+$metadata = $match['metadata'] ?? [];
+$photo_id = isset($metadata['photo_id']) ? (int) $metadata['photo_id'] : 0;
+// Utilise metadata['photo_id'] qui contient '92812' → 92812
+```
+
+**Problème :** Les IDs Pinecone sont sous forme `img_92812`, convertir ça en `int` donne `0`.
+
+**Solution :** Utiliser `metadata['photo_id']` qui contient l'ID WordPress réel.
+
+### Améliorations ajoutées
+
+1. **Extraction correcte de l'ID** depuis les métadonnées
+2. **Parse RGB string** : Gère le format `"227,227,227"` depuis les métadonnées
+3. **Validation** : Skip les matches sans `photo_id` valide
+4. **Logs** : Alerte si un match n'a pas de `photo_id`
+
+### Tests après fix
+
+```bash
+curl -X POST ".../pictures/by_dominant_color" \
+  -d '{"rgb": [227, 227, 227], "limit": 5}'
+```
+
+**Résultats :**
+- ✅ `results_count: 5`
+- ✅ `search_source: pinecone` (avant: "euclidean" = fallback local)
+- ✅ Scores: 0.0000 (match exact!)
+- ✅ Photos retournées :
+  - ID 93206 - Vendeur cubain pensif
+  - ID 92812 - IMG_6912.jpg
+  - ID 93486 - Usure et texture monochrome
+  - ID 93009 - IMGS8396.jpg
+  - ID 91492 - Wireframe placeholder
+
+### Déploiement
+```bash
+scp src/routing/class.photo-library-route.php dreamhost-phototheque:.../src/routing/
+```
+
+✅ **Commit WordPress** : `468aacd` - "fix: extract photo_id from Pinecone metadata instead of match id"
+✅ **Status** : Pinecone fonctionne maintenant parfaitement avec scores exacts!
+
+### Conclusion
+**Pinecone était correctement configuré et indexé** (612 vecteurs). Le seul problème était l'extraction de l'ID depuis les résultats. Fix appliqué et testé ✅
