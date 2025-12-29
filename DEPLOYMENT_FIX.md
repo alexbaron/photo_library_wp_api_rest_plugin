@@ -52,6 +52,14 @@ Modification de l'URL de l'API dans le fichier buildé :
 # Backup et correction
 cp public/assets/index-CBt_eoBb.js public/assets/index-CBt_eoBb.js.backup
 sed -i '' 's|https://photographie\.stephanewagner\.com/wp-json|https://www.photographie.stephanewagner.com/wp-json|g' public/assets/index-CBt_eoBb.js
+
+# Créer une version avec nouveau nom pour contourner le cache serveur (30 jours)
+cp public/assets/index-CBt_eoBb.js public/assets/index-CBt_eoBb-v2.js
+```
+
+Mise à jour de `index.html` pour pointer vers le nouveau fichier :
+```html
+<script type="module" crossorigin src="./assets/index-CBt_eoBb-v2.js"></script>
 ```
 
 **Note :** Pour corriger à la source, modifier l'URL de l'API dans le projet React source avant le build.
@@ -62,6 +70,9 @@ Fichiers uploadés via SSH :
 # Fix des chemins relatifs
 scp public/index.html dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/index.html
 
-# Fix de l'URL API (www)
-scp public/assets/index-CBt_eoBb.js dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/assets/index-CBt_eoBb.js
+# Fix de l'URL API (www) - version avec cache-busting
+scp public/assets/index-CBt_eoBb-v2.js dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/assets/index-CBt_eoBb-v2.js
+
+# Mise à jour de index.html pour pointer vers v2
+scp public/index.html dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/index.html
 ```
