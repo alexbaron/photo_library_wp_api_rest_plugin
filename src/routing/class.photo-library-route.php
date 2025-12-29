@@ -1294,6 +1294,12 @@ class PhotoLibrary_Route extends WP_REST_Controller
                         $thumbnail_url = wp_get_attachment_image_url($photo_id, 'thumbnail');
                         $medium_url = wp_get_attachment_image_url($photo_id, 'medium');
                         $large_url = wp_get_attachment_image_url($photo_id, 'large');
+                        
+                        // Get color palette
+                        $palette = get_post_meta($photo_id, '_pl_palette', true);
+                        if ($palette && is_string($palette)) {
+                            $palette = maybe_unserialize($palette);
+                        }
 
                         $pictures_data[] = [
                             'id' => $photo_id,
@@ -1305,6 +1311,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
                                 'large' => $large_url ?: $attachment_url,
                                 'full' => $attachment_url
                             ],
+                            'palette' => $palette ?: null,
                             'similarity_score' => $match['score'],
                             'dominant_color' => $match['color'],
                             'dominant_color_hex' => sprintf('#%02x%02x%02x', ...$match['color']),
@@ -1443,6 +1450,12 @@ class PhotoLibrary_Route extends WP_REST_Controller
                         $thumbnail_url = wp_get_attachment_image_url($match['photo_id'], 'thumbnail');
                         $medium_url = wp_get_attachment_image_url($match['photo_id'], 'medium');
                         $large_url = wp_get_attachment_image_url($match['photo_id'], 'large');
+                        
+                        // Get color palette
+                        $palette = get_post_meta($match['photo_id'], '_pl_palette', true);
+                        if ($palette && is_string($palette)) {
+                            $palette = maybe_unserialize($palette);
+                        }
 
                         $pictures_data[] = [
                             'id' => $match['photo_id'],
@@ -1454,6 +1467,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
                                 'large' => $large_url ?: $attachment_url,
                                 'full' => $attachment_url
                             ],
+                            'palette' => $palette ?: null,
                             'distance' => $match['distance'],
                             'similarity_score' => $match['similarity_score'],
                             'dominant_color' => $match['dominant_color'],
