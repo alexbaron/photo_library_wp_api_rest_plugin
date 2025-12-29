@@ -59,8 +59,8 @@ class PL_WordPress_Page
             header_remove();
         }
 
-        $plugin_dir = plugin_dir_path(__FILE__);
-        $css_file = $plugin_dir . '../public/dist/assets/' . basename($filename);
+        $plugin_dir = plugin_dir_path(dirname(__FILE__, 2)); // Go up two levels to get to plugin root
+        $css_file = $plugin_dir . 'public/assets/' . basename($filename);
 
         if (file_exists($css_file) && pathinfo($filename, PATHINFO_EXTENSION) === 'css') {
             header('Content-Type: text/css; charset=utf-8', true);
@@ -84,8 +84,8 @@ class PL_WordPress_Page
             header_remove();
         }
 
-        $plugin_dir = plugin_dir_path(__FILE__);
-        $js_file = $plugin_dir . '../public/dist/assets/' . basename($filename);
+        $plugin_dir = plugin_dir_path(dirname(__FILE__, 2)); // Go up two levels to get to plugin root
+        $js_file = $plugin_dir . 'public/assets/' . basename($filename);
 
         if (file_exists($js_file) && pathinfo($filename, PATHINFO_EXTENSION) === 'js') {
             header('Content-Type: application/javascript; charset=utf-8', true);
@@ -104,14 +104,15 @@ class PL_WordPress_Page
      */
     public static function render_react_page()
     {
-        $plugin_dir = plugin_dir_path(__FILE__);
-        $index_file = $plugin_dir . '../public/dist/index.html';
+        $plugin_dir = plugin_dir_path(dirname(__FILE__, 2)); // Go up two levels to get to plugin root
+        $index_file = $plugin_dir . 'public/index.html';
         $site_url = site_url();
 
         // Vérifier si le fichier index.html existe
         if (!file_exists($index_file)) {
             echo '<h1>Erreur: Fichier index.html non trouvé</h1>';
             echo '<p>Le fichier ' . $index_file . ' n\'existe pas.</p>';
+            echo '<p>Plugin dir: ' . $plugin_dir . '</p>';
             return;
         }
 

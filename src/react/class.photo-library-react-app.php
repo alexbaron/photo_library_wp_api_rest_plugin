@@ -12,8 +12,8 @@ class PL_React_App
      */
     public static function init()
     {
-        add_action('init', array(__CLASS__, 'add_rewrite_rules'));
-        add_action('template_redirect', array(__CLASS__, 'handle_react_app'));
+        add_action('init', array(__CLASS__, 'add_rewrite_rules'), 1); // Higher priority
+        add_action('template_redirect', array(__CLASS__, 'handle_react_app'), 1);
         add_action('wp_enqueue_scripts', array(__CLASS__, 'enqueue_react_assets'));
         add_filter('query_vars', array(__CLASS__, 'add_query_vars'));
     }
@@ -66,24 +66,37 @@ class PL_React_App
 
         // Debug: log les variables de requête
         $asset_var = get_query_var('phototheque_asset');
+        $app_var = get_query_var('phototheque_app');
+        $react_page_var = get_query_var('phototeque_react_page');
+
+        // Debug logging
         if ($asset_var) {
             error_log('Photo Library Plugin: Asset requested: ' . $asset_var);
+        }
+        if ($app_var) {
+            error_log('Photo Library Plugin: React App requested');
+        }
+        if ($react_page_var) {
+            error_log('Photo Library Plugin: WordPress React Page requested');
         }
 
         // Serve React app
         if (get_query_var('phototheque_app')) {
+            error_log('Photo Library Plugin: Serving React App');
             self::serve_react_app();
             exit;
         }
 
         // Serve WordPress page with React
         if (get_query_var('phototeque_react_page')) {
+            error_log('Photo Library Plugin: Serving WordPress React Page');
             self::serve_wordpress_react_page();
             exit;
         }
 
         // Serve React assets
         if (get_query_var('phototheque_asset')) {
+            error_log('Photo Library Plugin: Serving React Asset: ' . get_query_var('phototheque_asset'));
             self::serve_react_asset(get_query_var('phototheque_asset'));
             exit;
         }
@@ -92,8 +105,15 @@ class PL_React_App
      */
     private static function serve_react_app()
     {
-        $plugin_dir = plugin_dir_path(__FILE__);
-        $index_file = $plugin_dir . '../public/index.html';
+        $plugin_dir = plugin_dir_path(dirname(__FILE__, 2)); // Go up two levels to get to plugin root
+
+				$asset_dir = $plugin_dir . 'public/';
+				if(!is_dir($asset_dir)) {
+						error_log('Photo Library Plugin: Public directory not found - ' . $asset_dir);
+						wp_die('Application React non trouvée. Chemin: ' . $asset_dir);
+				}
+
+				$index_file = $plugin_dir . 'public/index.html';
 
         if (file_exists($index_file)) {
             $content = file_get_contents($index_file);
@@ -110,7 +130,7 @@ class PL_React_App
             header('Content-Type: text/html; charset=utf-8');
             echo $content;
         } else {
-            wp_die('Application React non trouvée');
+            wp_die('Application React non trouvée. Chemin: ' . $index_file);
         }
     }
 
@@ -119,8 +139,13 @@ class PL_React_App
      */
     private static function serve_react_asset($asset_path)
     {
-        $plugin_dir = plugin_dir_path(__FILE__);
-        $asset_file = $plugin_dir . '../public/dist/assets/' . $asset_path;
+        $plugin_dir = plugin_dir_path(dirname(__FILE__, 2)); // Go up two levels to get to plugin root
+        $asset_file = $plugin_dir . 'public/assets/' . $asset_path;
+
+				if(!is_file($asset_file)) {
+						error_log('Photo Library Plugin: Assets file not found - ' . $asset_path);
+						return;
+				}
 
         // Debug
         error_log('Photo Library Plugin: Serving asset - Path: ' . $asset_path . ', File: ' . $asset_file);
@@ -178,8 +203,17 @@ class PL_React_App
      */
     private static function serve_wordpress_react_page()
     {
-        // Déléguer à la classe WordPress Page
-        PL_WordPress_Page::render_react_page();
+        error_log('Photo Library Plugin: serve_wordpress_react_page() called');
+
+        // Vérifier si la classe PL_WordPress_Page existe
+        if (class_exists('PL_WordPress_Page')) {
+            error_log('Photo Library Plugin: PL_WordPress_Page class found, delegating...');
+            // Déléguer à la classe WordPress Page
+            PL_WordPress_Page::render_react_page();
+        } else {
+            error_log('Photo Library Plugin: PL_WordPress_Page class NOT found');
+            wp_die('Classe PL_WordPress_Page non trouvée');
+        }
     }
 
     /**
@@ -197,8 +231,14 @@ class PL_React_App
     private static function output_react_assets()
     {
         $site_url = site_url();
-        $plugin_dir = plugin_dir_path(__FILE__);
-        $assets_dir = $plugin_dir . '../public/assets/';
+        $plugin_dir = plugin_dir_path(dirname(__FILE__, 2));
+				 // Go up two levels to get to plugin root
+        $assets_dir = $plugin_dir . 'public/assets/';
+
+				if(!is_dir($assets_dir)) {
+						error_log('Photo Library Plugin: Assets directory not found - ' . $assets_dir);
+						return;
+				}
 
         // Trouver les fichiers CSS et JS
         $css_files = glob($assets_dir . 'index-*.css');
