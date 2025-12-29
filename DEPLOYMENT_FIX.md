@@ -172,3 +172,39 @@ scp -r dist/* dreamhost-phototheque:./photographie.stephanewagner.com/wp-content
 ```
 
 ✅ **Commit React** : `14926c5` - "fix: correct KeywordAPIResponse structure and add null checks"
+
+## Fix vite.svg 404 (29 décembre 2024 - 23h31)
+
+### Problème
+```
+GET https://www.photographie.stephanewagner.com/phototeque-react/vite.svg 404 (Not Found)
+```
+
+Le fichier favicon `vite.svg` référencé dans `index.html` n'existait pas.
+
+### Solution
+Création d'un favicon SVG simple avec gradient et lettre "P" :
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#41d1ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#bd34fe;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="4" fill="url(#grad)"/>
+  <text x="16" y="22" font-family="Arial" font-size="18" font-weight="bold" text-anchor="middle" fill="white">P</text>
+</svg>
+```
+
+### Déploiement
+```bash
+cd /Users/alexandrebaron/Documents/dev/perso/phototheque
+# Créer public/vite.svg
+npm run build  # Copié automatiquement dans dist/
+scp dist/vite.svg dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/
+```
+
+✅ **Commit React** : `6589297` - "fix: add missing vite.svg favicon"
+✅ **Vérification** : https://www.photographie.stephanewagner.com/phototeque-react/vite.svg → 200 OK
