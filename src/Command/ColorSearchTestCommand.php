@@ -13,6 +13,31 @@ use GuzzleHttp\Exception\GuzzleException;
 
 class ColorSearchTestCommand extends Command
 {
+    /**
+     * Get the default WordPress URL based on environment
+     */
+    private static function getDefaultWpUrl(): string
+    {
+        // Check for environment indicators (safe for CLI)
+        $hostname = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] :
+                   (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '');
+
+        // If we're in a production environment (stephanewagner.com domain)
+        if (strpos($hostname, 'stephanewagner.com') !== false ||
+            strpos($hostname, 'photographie') !== false) {
+            return 'https://photographie.stephanewagner.com';
+        }
+
+        // Check for production environment variables
+        if (getenv('WP_ENV') === 'production' ||
+            getenv('NODE_ENV') === 'production') {
+            return 'https://photographie.stephanewagner.com';
+        }
+
+        // Default to development URL
+        return 'https://phototheque-wp.ddev.site';
+    }
+
     protected function configure(): void
     {
         $this
@@ -23,7 +48,7 @@ class ColorSearchTestCommand extends Command
             ->addOption('limit', 'l', InputOption::VALUE_REQUIRED, 'Number of results to return', 10)
             ->addOption('tolerance', 't', InputOption::VALUE_REQUIRED, 'Color tolerance (0-255)', 30)
             ->addOption('method', 'm', InputOption::VALUE_REQUIRED, 'Distance calculation method (euclidean, manhattan, weighted)', 'euclidean')
-            ->addOption('wp-url', null, InputOption::VALUE_REQUIRED, 'WordPress site URL', 'https://phototheque-wp.ddev.site');
+            ->addOption('wp-url', null, InputOption::VALUE_REQUIRED, 'WordPress site URL', self::getDefaultWpUrl());
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

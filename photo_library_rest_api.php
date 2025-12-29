@@ -95,6 +95,10 @@ require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'routing' . DIRECTORY_SEPARA
 
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'class.photo-library-frontend.php';
 
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'react' . DIRECTORY_SEPARATOR . 'class.photo-library-react-app.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'react' . DIRECTORY_SEPARATOR . 'class.photo-library-wordpress-page.php';
+
+
 
 // Initialize configuration.
 
@@ -134,6 +138,11 @@ add_action(
         header('Access-Control-Allow-Credentials: true');
     },
 );
+
+
+// Initialize React App integration EARLY
+PL_React_App::init();
+PL_WordPress_Page::init();
 
 add_action('rest_api_init', [ 'PhotoLibrary', 'register_rest_routes' ]);
 
