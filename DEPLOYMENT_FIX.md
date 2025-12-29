@@ -21,14 +21,28 @@ Modification de `public/index.html` :
 Dans le projet React source (non présent dans ce repo), configurer Vite avec :
 
 ```js
-// vite.config.js
-export default {
+// vite.config.ts
+export default defineConfig({
   base: './', // Utiliser des chemins relatifs au lieu de /
   build: {
-    outDir: '../public'
+    outDir: 'dist'
   }
-}
+})
 ```
+
+Et mettre à jour les URLs de l'API :
+
+```bash
+# .env.production
+VITE_BASE_URL=https://www.photographie.stephanewagner.com/wp-json/photo-library/v1
+VITE_WP_URL=https://www.photographie.stephanewagner.com
+
+# src/config/config.ts
+# Mettre à jour les fallback URLs pour utiliser www.photographie.stephanewagner.com
+```
+
+✅ **Appliqué dans le projet source** : `/Users/alexandrebaron/Documents/dev/perso/phototheque`
+- Commit: `8794433` - "fix: use www subdomain for API URL and relative paths"
 
 ## Fix CORS et redirection 301 (29 décembre 2024 - 23h05)
 
