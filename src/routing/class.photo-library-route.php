@@ -1243,7 +1243,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
             // Récupérer les paramètres
             $rgb_color = $request->get_param('rgb');
             $tolerance = intval($request->get_param('tolerance') ?? 30);
-            $limit = intval($request->get_param('limit') ?? 20);
+            $limit = intval($request->get_param('limit') ?? 5);
             $method = $request->get_param('method') ?? 'euclidean';
             $use_pinecone = $request->get_param('use_pinecone') ?? true;
 
@@ -1519,7 +1519,7 @@ class PhotoLibrary_Route extends WP_REST_Controller
      * @return array Array of matching photos with scores
      * @throws Exception If Pinecone API fails
      */
-    private function search_pinecone_with_guzzle(array $rgb_color, int $limit = 20): array
+    private function search_pinecone_with_guzzle(array $rgb_color, int $limit = 5): array
     {
         // Load .env file
         $env_file = dirname(__FILE__) . '/../../.env';
