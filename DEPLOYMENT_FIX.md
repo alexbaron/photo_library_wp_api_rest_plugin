@@ -90,3 +90,35 @@ scp public/assets/index-CBt_eoBb-v2.js dreamhost-phototheque:./photographie.step
 # Mise à jour de index.html pour pointer vers v2
 scp public/index.html dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/index.html
 ```
+
+## Fix random picture cache (29 décembre 2024 - 23h18)
+
+### Problème
+L'endpoint `/pictures/random/0` retourne toujours la même image côté client, même si le serveur renvoie bien des IDs différents à chaque requête.
+
+### Cause
+Cache HTTP du navigateur ou du proxy sur les requêtes GET. Axios/navigateur met en cache les réponses des requêtes identiques.
+
+### Solution
+Ajout de cache-busting dans `picture-api.ts` :
+```typescript
+// Ajout d'un timestamp unique pour chaque requête
+const timestamp = Date.now();
+axios.get(`${BASE_URL}/pictures/random/${id}?_t=${timestamp}`, {
+  headers: {
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+  }
+})
+```
+
+### Déploiement
+```bash
+cd /Users/alexandrebaron/Documents/dev/perso/phototheque
+npm run build
+scp -r dist/* dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/
+```
+
+Nouveau fichier généré : `index-CG7SJabw.js` (le hash change automatiquement à chaque build)
+
+✅ **Commit React** : `fa52d94` - "fix: add cache-busting to random picture endpoint"
