@@ -208,3 +208,80 @@ scp dist/vite.svg dreamhost-phototheque:./photographie.stephanewagner.com/wp-con
 
 ✅ **Commit React** : `6589297` - "fix: add missing vite.svg favicon"
 ✅ **Vérification** : https://www.photographie.stephanewagner.com/phototeque-react/vite.svg → 200 OK
+
+## Fix Color Search Empty Results (29 décembre 2024 - 23h37)
+
+### Problème
+```
+POST /wp-json/photo-library/v1/pictures/by_dominant_color
+{"rgb": [227, 227, 227], "limit": 10}
+→ {"results_count": 0, "pictures": []}
+```
+
+La recherche par couleur retournait toujours un tableau vide même si des photos correspondantes existaient dans la base de données.
+
+### Cause
+Le code retournait immédiatement quand Pinecone ne trouvait aucun résultat, sans utiliser le fallback local. 
+
+**Séquence du bug :**
+1. Pinecone interrogé → retourne `[]` (vide)
+2. Code: `if (!empty($pinecone_results))` → false
+3. ❌ Retour immédiat avec `pictures: []`
+4. Le fallback local n'était jamais exécuté
+
+### Solution
+Modification de la logique dans `class.photo-library-route.php` :
+
+```php
+// AVANT
+if (!empty($pinecone_results)) {
+    $pictures_data = [];
+    foreach ($pinecone_results as $match) {
+        // ... populate pictures_data
+    }
+    return new WP_REST_Response([
+        'pictures' => $pictures_data
+    ]);
+}
+// Fallback local...
+
+// APRÈS
+if (!empty($pinecone_results)) {
+    $pictures_data = [];
+    foreach ($pinecone_results as $match) {
+        // ... populate pictures_data
+    }
+    // ✅ Only return if we have actual pictures
+    if (!empty($pictures_data)) {
+        return new WP_REST_Response([
+            'pictures' => $pictures_data
+        ]);
+    }
+    // ✅ Fall through to local search if no valid pictures
+    error_log('Pinecone results contained no valid pictures, falling back to local search');
+}
+// Fallback local est maintenant atteint
+```
+
+### Tests
+```bash
+# Test avec RGB [227,227,227]
+curl -X POST ".../pictures/by_dominant_color" \
+  -d '{"rgb": [227, 227, 227], "limit": 3}'
+
+# ✅ AVANT le fix: results_count: 0
+# ✅ APRÈS le fix: results_count: 3
+```
+
+**Résultats obtenus :**
+- ID 93486 - "Usure et texture monochrome" - distance: 0 (exact match!)
+- ID 93206 - "Vendeur cubain pensif" - distance: 0
+- ID 93009 - "IMGS8396.jpg" - distance: 0
+
+### Déploiement
+```bash
+scp src/routing/class.photo-library-route.php dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/src/routing/
+```
+
+✅ **Commit WordPress** : `b57eef3` - "fix: fallback to local search when Pinecone returns empty results"
+✅ **Vérification** : La recherche par couleur retourne maintenant des résultats via le fallback local
