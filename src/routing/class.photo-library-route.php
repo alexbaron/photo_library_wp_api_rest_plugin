@@ -1304,18 +1304,23 @@ class PhotoLibrary_Route extends WP_REST_Controller
                     }
                 }
 
-                return new WP_REST_Response(
-                    array(
-                        'query_color' => $rgb_color,
-                        'query_color_hex' => sprintf('#%02x%02x%02x', $target_r, $target_g, $target_b),
-                        'search_source' => $search_source,
-                        'results_count' => count($pictures_data),
-                        'background_photo' => !empty($pictures_data) ? $pictures_data[0] : null,
-                        'thumbnail_photos' => $pictures_data,
-                        'pictures' => $pictures_data // Keep for backward compatibility
-                    ),
-                    200
-                );
+                // Only return Pinecone results if we actually have pictures
+                if (!empty($pictures_data)) {
+                    return new WP_REST_Response(
+                        array(
+                            'query_color' => $rgb_color,
+                            'query_color_hex' => sprintf('#%02x%02x%02x', $target_r, $target_g, $target_b),
+                            'search_source' => $search_source,
+                            'results_count' => count($pictures_data),
+                            'background_photo' => !empty($pictures_data) ? $pictures_data[0] : null,
+                            'thumbnail_photos' => $pictures_data,
+                            'pictures' => $pictures_data // Keep for backward compatibility
+                        ),
+                        200
+                    );
+                }
+                // If Pinecone returned results but no valid pictures, fall through to local search
+                error_log('Pinecone results contained no valid pictures, falling back to local search');
             }
 
             // Fallback: Recherche locale dans WordPress
