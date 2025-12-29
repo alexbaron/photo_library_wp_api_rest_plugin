@@ -122,3 +122,53 @@ scp -r dist/* dreamhost-phototheque:./photographie.stephanewagner.com/wp-content
 Nouveau fichier généré : `index-CG7SJabw.js` (le hash change automatiquement à chaque build)
 
 ✅ **Commit React** : `fa52d94` - "fix: add cache-busting to random picture endpoint"
+
+## Fix KeywordAPIResponse TypeError (29 décembre 2024 - 23h27)
+
+### Problème
+```
+Error fetching keywords, using props keywords: TypeError: Cannot read properties of undefined (reading 'map')
+    at w (SearchBox.tsx:34:49)
+```
+
+### Cause
+Incompatibilité entre la structure de la réponse API et l'interface TypeScript :
+- **API retourne** : `{ message: string, data: string[] }`
+- **Interface attendait** : `{ keywords: string[] }`
+
+### Solution
+1. **Mise à jour de l'interface** (`interfaces.ts`) :
+```typescript
+interface KeywordAPIResponse {
+  message?: string;
+  data: string[];
+  cached?: boolean;
+  cache_time?: string;
+}
+```
+
+2. **Transformation dans l'API client** (`picture-api.ts`) :
+```typescript
+static fetchKeywords(): Promise<{ keywords: string[] }> {
+  return axios.get(`${BASE_URL}/pictures/keywords`)
+    .then((response: AxiosResponse<KeywordAPIResponse>) => {
+      // Transform API response to expected format
+      return { keywords: response.data.data };
+    });
+}
+```
+
+3. **Null checks défensifs** (`SearchBox.tsx`) :
+```typescript
+const keywordsOptions = (response.keywords || []).map(keyword => ({ title: keyword }))
+const keywordsFromProps = (keywords || []).map(keyword => ({ title: keyword }))
+```
+
+### Déploiement
+```bash
+cd /Users/alexandrebaron/Documents/dev/perso/phototheque
+npm run build  # Génère index-C0jkVbdf.js
+scp -r dist/* dreamhost-phototheque:./photographie.stephanewagner.com/wp-content/plugins/photo_library_wp_api_rest_plugin/public/
+```
+
+✅ **Commit React** : `14926c5` - "fix: correct KeywordAPIResponse structure and add null checks"
