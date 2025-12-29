@@ -130,52 +130,68 @@ class PL_WordPress_Page
         // Remplacer directement les liens vers les assets par nos URLs personnalisées
         $original_content = $content;
 
-        // Première tentative avec regex complète
+        // Pattern 1: Liens absolus avec domaine complet (ex: https://site.com/assets/file.css)
         $content = preg_replace_callback(
-            '/href="(?:https?:\/\/[^\/]+)?(?:\.)?\/assets\/([^"]*\.css)"/',
+            '/href="https?:\/\/[^\/]+\/assets\/([^"]*\.css)"/',
             function($matches) use ($site_url) {
                 $filename = $matches[1];
-                error_log('Photo Library Plugin: CSS asset matched: ' . $matches[0] . ' -> ' . $filename);
+                error_log('Photo Library Plugin: CSS absolute URL matched: ' . $matches[0] . ' -> ' . $filename);
                 return 'href="' . $site_url . '?pl_css=' . urlencode($filename) . '"';
             },
             $content
         );
 
         $content = preg_replace_callback(
-            '/src="(?:https?:\/\/[^\/]+)?(?:\.)?\/assets\/([^"]*\.js)"/',
+            '/src="https?:\/\/[^\/]+\/assets\/([^"]*\.js)"/',
             function($matches) use ($site_url) {
                 $filename = $matches[1];
-                error_log('Photo Library Plugin: JS asset matched: ' . $matches[0] . ' -> ' . $filename);
+                error_log('Photo Library Plugin: JS absolute URL matched: ' . $matches[0] . ' -> ' . $filename);
                 return 'src="' . $site_url . '?pl_js=' . urlencode($filename) . '"';
             },
             $content
         );
 
-        // Si les regex n'ont pas fonctionné, essayer des patterns plus simples
-        if ($content === $original_content) {
-            error_log('Photo Library Plugin: Complex regex failed, trying simple patterns');
+        // Pattern 2: Liens relatifs simples (ex: /assets/file.css)
+        $content = preg_replace_callback(
+            '/href="\/assets\/([^"]*\.css)"/',
+            function($matches) use ($site_url) {
+                $filename = $matches[1];
+                error_log('Photo Library Plugin: CSS relative path matched: ' . $matches[0] . ' -> ' . $filename);
+                return 'href="' . $site_url . '?pl_css=' . urlencode($filename) . '"';
+            },
+            $content
+        );
 
-            // CSS simple
-            $content = preg_replace_callback(
-                '/href="\/assets\/([^"]*\.css)"/',
-                function($matches) use ($site_url) {
-                    $filename = $matches[1];
-                    error_log('Photo Library Plugin: Simple CSS pattern matched: ' . $filename);
-                    return 'href="' . $site_url . '?pl_css=' . urlencode($filename) . '"';
-                },
-                $content
-            );
+        $content = preg_replace_callback(
+            '/src="\/assets\/([^"]*\.js)"/',
+            function($matches) use ($site_url) {
+                $filename = $matches[1];
+                error_log('Photo Library Plugin: JS relative path matched: ' . $matches[0] . ' -> ' . $filename);
+                return 'src="' . $site_url . '?pl_js=' . urlencode($filename) . '"';
+            },
+            $content
+        );
 
-            // JS simple
-            $content = preg_replace_callback(
-                '/src="\/assets\/([^"]*\.js)"/',
-                function($matches) use ($site_url) {
-                    $filename = $matches[1];
-                    error_log('Photo Library Plugin: Simple JS pattern matched: ' . $filename);
-                    return 'src="' . $site_url . '?pl_js=' . urlencode($filename) . '"';
-                },
-                $content
-            );        }
+        // Pattern 3: Liens relatifs sans slash initial (ex: assets/file.css)
+        $content = preg_replace_callback(
+            '/href="assets\/([^"]*\.css)"/',
+            function($matches) use ($site_url) {
+                $filename = $matches[1];
+                error_log('Photo Library Plugin: CSS no-slash pattern matched: ' . $matches[0] . ' -> ' . $filename);
+                return 'href="' . $site_url . '?pl_css=' . urlencode($filename) . '"';
+            },
+            $content
+        );
+
+        $content = preg_replace_callback(
+            '/src="assets\/([^"]*\.js)"/',
+            function($matches) use ($site_url) {
+                $filename = $matches[1];
+                error_log('Photo Library Plugin: JS no-slash pattern matched: ' . $matches[0] . ' -> ' . $filename);
+                return 'src="' . $site_url . '?pl_js=' . urlencode($filename) . '"';
+            },
+            $content
+        );
         // Debug: log le contenu modifié
         error_log('Photo Library Plugin: Modified HTML head: ' . substr($content, 0, 500));
 
