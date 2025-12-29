@@ -1289,11 +1289,22 @@ class PhotoLibrary_Route extends WP_REST_Controller
                     if ($photo_info && $photo_info->post_type === 'attachment') {
                         $attachment_url = wp_get_attachment_url($photo_id);
                         $attachment_metadata = wp_get_attachment_metadata($photo_id);
+                        
+                        // Get different image sizes
+                        $thumbnail_url = wp_get_attachment_image_url($photo_id, 'thumbnail');
+                        $medium_url = wp_get_attachment_image_url($photo_id, 'medium');
+                        $large_url = wp_get_attachment_image_url($photo_id, 'large');
 
                         $pictures_data[] = [
                             'id' => $photo_id,
                             'title' => $photo_info->post_title,
                             'url' => $attachment_url,
+                            'src' => [
+                                'thumbnail' => $thumbnail_url ?: $attachment_url,
+                                'medium' => $medium_url ?: $attachment_url,
+                                'large' => $large_url ?: $attachment_url,
+                                'full' => $attachment_url
+                            ],
                             'similarity_score' => $match['score'],
                             'dominant_color' => $match['color'],
                             'dominant_color_hex' => sprintf('#%02x%02x%02x', ...$match['color']),
@@ -1427,11 +1438,22 @@ class PhotoLibrary_Route extends WP_REST_Controller
                     if ($photo_info && $photo_info->post_type === 'attachment') {
                         $attachment_url = wp_get_attachment_url($match['photo_id']);
                         $attachment_metadata = wp_get_attachment_metadata($match['photo_id']);
+                        
+                        // Get different image sizes
+                        $thumbnail_url = wp_get_attachment_image_url($match['photo_id'], 'thumbnail');
+                        $medium_url = wp_get_attachment_image_url($match['photo_id'], 'medium');
+                        $large_url = wp_get_attachment_image_url($match['photo_id'], 'large');
 
                         $pictures_data[] = [
                             'id' => $match['photo_id'],
                             'title' => $photo_info->post_title,
                             'url' => $attachment_url,
+                            'src' => [
+                                'thumbnail' => $thumbnail_url ?: $attachment_url,
+                                'medium' => $medium_url ?: $attachment_url,
+                                'large' => $large_url ?: $attachment_url,
+                                'full' => $attachment_url
+                            ],
                             'distance' => $match['distance'],
                             'similarity_score' => $match['similarity_score'],
                             'dominant_color' => $match['dominant_color'],
