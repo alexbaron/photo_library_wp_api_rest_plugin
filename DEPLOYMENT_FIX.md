@@ -353,3 +353,133 @@ scp src/routing/class.photo-library-route.php dreamhost-phototheque:.../src/rout
 
 ### Conclusion
 **Pinecone était correctement configuré et indexé** (612 vecteurs). Le seul problème était l'extraction de l'ID depuis les résultats. Fix appliqué et testé ✅
+
+## Ajout des thumbnails aux résultats de recherche par couleur (29 décembre 2024 - 23h49)
+
+### Objectif
+Afficher des miniatures des photos dans le composant `PictureList` pour les résultats de recherche par couleur.
+
+### Changements Backend (PHP)
+
+#### Problème
+L'API retournait uniquement l'URL complète de l'image dans le champ `url`, pas les différentes tailles (thumbnail, medium, large).
+
+#### Solution
+Ajout d'un objet `src` dans les résultats avec toutes les tailles disponibles :
+
+```php
+// Récupération des différentes tailles
+$thumbnail_url = wp_get_attachment_image_url($photo_id, 'thumbnail');
+$medium_url = wp_get_attachment_image_url($photo_id, 'medium');
+$large_url = wp_get_attachment_image_url($photo_id, 'large');
+
+// Ajout dans les résultats
+'src' => [
+    'thumbnail' => $thumbnail_url ?: $attachment_url,
+    'medium' => $medium_url ?: $attachment_url,
+    'large' => $large_url ?: $attachment_url,
+    'full' => $attachment_url
+]
+```
+
+**Appliqué à :**
+- Résultats Pinecone (ligne ~1298)
+- Fallback local (ligne ~1442)
+
+#### Exemple de réponse
+```json
+{
+  "id": 92812,
+  "title": "IMG_6912.jpg",
+  "url": "https://.../lightroom-6912.webp",
+  "src": {
+    "thumbnail": "https://.../lightroom-6912-375x150.webp",
+    "medium": "https://.../lightroom-6912-200x300.webp",
+    "large": "https://.../lightroom-6912-683x1024.webp",
+    "full": "https://.../lightroom-6912.webp"
+  }
+}
+```
+
+### Changements Frontend (React)
+
+#### Problème
+`PictureItem` s'attendait à un format complexe :
+```typescript
+src.thumbnail: {
+  file: string;
+  width: number;
+  // ...
+}
+```
+
+Mais l'API color search retourne maintenant :
+```typescript
+src.thumbnail: string  // URL directe
+```
+
+#### Solution
+
+**1. Interface TypeScript mise à jour** (`interfaces.ts`) :
+```typescript
+src: {
+  thumbnail?: string | { file: string; width: number; ... };
+  medium?: string | { file: string; width: number; ... };
+  large?: string | { file: string; width: number; ... };
+  full?: string;
+  // ... legacy fields
+}
+```
+
+**2. Fonction `getThumbnailUrl` améliorée** (`PictureItem.tsx`) :
+```typescript
+const getThumbnailUrl = (picture: Picture): string | null => {
+  // New format: direct URL string
+  if (typeof picture.src?.thumbnail === 'string') {
+    return picture.src.thumbnail;
+  }
+  
+  // Old format: object with file property
+  if (picture.src?.thumbnail && typeof picture.src.thumbnail === 'object') {
+    const url = new URL(picture.baseUrl + picture.src.thumbnail.file);
+    return url.toString();
+  }
+  
+  // Fallback
+  return picture.url || null;
+}
+```
+
+### Tests
+
+#### Test API
+```bash
+curl -X POST ".../pictures/by_dominant_color" -d '{"rgb": [227,227,227], "limit": 1}'
+```
+
+✅ Retourne `src.thumbnail` avec URL complète
+
+#### Test Frontend
+✅ PictureList affiche les miniatures des résultats de recherche par couleur
+✅ Compatible avec l'ancien format (recherche par mots-clés)
+✅ Fallback gracieux si thumbnail non disponible
+
+### Déploiement
+
+**Backend :**
+```bash
+scp src/routing/class.photo-library-route.php dreamhost-phototheque:.../src/routing/
+```
+
+**Frontend :**
+```bash
+npm run build  # Génère index-KXd_Sf2G.js
+scp -r dist/* dreamhost-phototheque:.../public/
+```
+
+### Commits
+- ✅ **PHP** : `9c9bfd2` - "feat: add image size variations to color search results"
+- ✅ **React** : `79aa627` - "feat: support both URL string and object formats for image src"
+
+### Résultat
+Les résultats de recherche par couleur affichent maintenant des **miniatures optimisées** (375x150px au lieu de l'image complète), améliorant significativement les performances et l'UX.
