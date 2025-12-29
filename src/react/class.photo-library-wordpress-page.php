@@ -124,24 +124,60 @@ class PL_WordPress_Page
             return;
         }
 
+        // Debug: log le contenu original pour diagnostic
+        error_log('Photo Library Plugin: Original HTML head: ' . substr($content, 0, 500));
+
         // Remplacer directement les liens vers les assets par nos URLs personnalisées
+        $original_content = $content;
+
+        // Première tentative avec regex complète
         $content = preg_replace_callback(
-            '/href="\/assets\/([^"]*\.css)"/',
+            '/href="(?:https?:\/\/[^\/]+)?(?:\.)?\/assets\/([^"]*\.css)"/',
             function($matches) use ($site_url) {
                 $filename = $matches[1];
+                error_log('Photo Library Plugin: CSS asset matched: ' . $matches[0] . ' -> ' . $filename);
                 return 'href="' . $site_url . '?pl_css=' . urlencode($filename) . '"';
             },
             $content
         );
 
         $content = preg_replace_callback(
-            '/src="\/assets\/([^"]*\.js)"/',
+            '/src="(?:https?:\/\/[^\/]+)?(?:\.)?\/assets\/([^"]*\.js)"/',
             function($matches) use ($site_url) {
                 $filename = $matches[1];
+                error_log('Photo Library Plugin: JS asset matched: ' . $matches[0] . ' -> ' . $filename);
                 return 'src="' . $site_url . '?pl_js=' . urlencode($filename) . '"';
             },
             $content
         );
+
+        // Si les regex n'ont pas fonctionné, essayer des patterns plus simples
+        if ($content === $original_content) {
+            error_log('Photo Library Plugin: Complex regex failed, trying simple patterns');
+
+            // CSS simple
+            $content = preg_replace_callback(
+                '/href="\/assets\/([^"]*\.css)"/',
+                function($matches) use ($site_url) {
+                    $filename = $matches[1];
+                    error_log('Photo Library Plugin: Simple CSS pattern matched: ' . $filename);
+                    return 'href="' . $site_url . '?pl_css=' . urlencode($filename) . '"';
+                },
+                $content
+            );
+
+            // JS simple
+            $content = preg_replace_callback(
+                '/src="\/assets\/([^"]*\.js)"/',
+                function($matches) use ($site_url) {
+                    $filename = $matches[1];
+                    error_log('Photo Library Plugin: Simple JS pattern matched: ' . $filename);
+                    return 'src="' . $site_url . '?pl_js=' . urlencode($filename) . '"';
+                },
+                $content
+            );        }
+        // Debug: log le contenu modifié
+        error_log('Photo Library Plugin: Modified HTML head: ' . substr($content, 0, 500));
 
         // Remplacer le favicon
         $content = str_replace(
