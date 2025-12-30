@@ -553,6 +553,10 @@ class PhotoLibrary_Route extends WP_REST_Controller
         if ($cached_results !== false && PL_Cache_Manager::is_search_cache_valid()) {
             $cached_results['cached'] = true;
             $cached_results['cache_time'] = current_time('mysql');
+            
+            // Schedule async palette generation for images without palettes
+            $this->schedule_missing_palettes($cached_results['pictures'] ?? []);
+            
             return new WP_REST_Response($cached_results, 200);
         }
 
@@ -560,10 +564,42 @@ class PhotoLibrary_Route extends WP_REST_Controller
         $data = PL_REST_DB::getMediaByKeywords($keywords);
         $data['cached'] = false;
 
+        // Schedule async palette generation for images without palettes
+        $this->schedule_missing_palettes($data['pictures'] ?? []);
+
         // Mise en cache des résultats
         PL_Cache_Manager::set_search_results_cache($keywords, $data);
 
         return new WP_REST_Response($data, 200);
+    }
+    
+    /**
+     * Schedule async palette generation for pictures without palettes
+     *
+     * @param array $pictures Array of pictures to check
+     */
+    private function schedule_missing_palettes(array $pictures)
+    {
+        $to_schedule = [];
+        
+        foreach ($pictures as $picture) {
+            $picture_id = is_array($picture) ? ($picture['id'] ?? 0) : ($picture->id ?? 0);
+            
+            if ($picture_id > 0) {
+                $has_palette = is_array($picture) 
+                    ? !empty($picture['palette']) 
+                    : !empty($picture->palette);
+                
+                if (!$has_palette) {
+                    $to_schedule[] = $picture_id;
+                }
+            }
+        }
+        
+        if (!empty($to_schedule)) {
+            error_log('PL_Route: Scheduling palette generation for ' . count($to_schedule) . ' images');
+            PL_Async_Palette_Generator::schedule_batch($to_schedule);
+        }
     }
 
     /**

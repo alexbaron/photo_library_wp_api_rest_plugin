@@ -84,6 +84,7 @@ require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATO
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'class.photo-library-file-cache.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-color.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-rgb-distance.php';
+require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'color' . DIRECTORY_SEPARATOR . 'class.photo-library-async-palette.php';
 
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-db.php';
 require_once PL__PLUGIN_DIR . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'class.photo-library-schema.php';
