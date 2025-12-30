@@ -128,6 +128,42 @@ class PL_Async_Palette_Generator
                 update_post_meta($attachment_id, '_pl_palette', $palette);
                 
                 error_log("PL_Async_Palette: Successfully generated palette for {$attachment_id}: " . json_encode($palette));
+                
+                // Update Pinecone with new palette
+                try {
+                    $pinecone = new PL_Pinecone();
+                    
+                    // Get dominant color (first color in palette)
+                    $dominant_color = $palette[0] ?? null;
+                    
+                    if ($dominant_color) {
+                        // Normalize RGB to 0-1 range for Pinecone
+                        $normalized = [
+                            $dominant_color[0] / 255,
+                            $dominant_color[1] / 255,
+                            $dominant_color[2] / 255
+                        ];
+                        
+                        // Upsert to Pinecone
+                        $result = $pinecone->upsert_vector(
+                            $attachment_id,
+                            $normalized,
+                            [
+                                'photo_id' => $attachment_id,
+                                'rgb' => implode(',', $dominant_color),
+                                'palette' => json_encode($palette)
+                            ]
+                        );
+                        
+                        if ($result) {
+                            error_log("PL_Async_Palette: Updated Pinecone for {$attachment_id}");
+                        } else {
+                            error_log("PL_Async_Palette: Failed to update Pinecone for {$attachment_id}");
+                        }
+                    }
+                } catch (Exception $e) {
+                    error_log("PL_Async_Palette: Error updating Pinecone for {$attachment_id}: " . $e->getMessage());
+                }
             } else {
                 error_log("PL_Async_Palette: Failed to extract palette for {$attachment_id}");
             }

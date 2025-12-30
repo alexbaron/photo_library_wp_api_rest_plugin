@@ -14,7 +14,9 @@ class PL_COLOR_HANDLER
                 5,
                 'array',
                 $area
-            )
+            ),
+            3,  // Extract only 3 colors
+            10  // Quality
         );
         return $palette;
     }
